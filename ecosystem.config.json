@@ -1,0 +1,18 @@
+{
+  "apps": [{
+    "name": "medical-check-api",
+    "script": "api.py",
+    "cwd": "./python_service",
+    "interpreter": "python",
+    "instances": 1,
+    "autorestart": true,
+    "watch": false,
+    "max_memory_restart": "500M",
+    "env": {
+      "PYTHONUNBUFFERED": "1"
+    },
+    "error_file": "./python_service/logs/error.log",
+    "out_file": "./python_service/logs/output.log",
+    "log_date_format": "YYYY-MM-DD HH:mm:ss Z"
+  }]
+}
