@@ -1,24 +1,70 @@
-*.log
-.DS_Store
-.env
-.env.backup
-.env.production
-.phpactor.json
-.phpunit.result.cache
-/.fleet
-/.idea
-/.nova
-/.phpunit.cache
-/.vscode
-/.zed
-/auth.json
+# ====================================
+# Laravel Default
+# ====================================
+/vendor
 /node_modules
 /public/build
 /public/hot
 /public/storage
 /storage/*.key
 /storage/pail
-/vendor
+/.phpunit.cache
+/.phpunit.result.cache
 Homestead.json
 Homestead.yaml
+auth.json
+
+# ====================================
+# Environment & Secrets
+# ====================================
+.env
+.env.backup
+.env.production
+.env.local
+
+# ====================================
+# IDE & Editor
+# ====================================
+/.idea
+/.vscode
+/.fleet
+/.nova
+/.zed
+.phpactor.json
+*.sublime-project
+*.sublime-workspace
+
+# ====================================
+# OS Files
+# ====================================
+.DS_Store
 Thumbs.db
+Desktop.ini
+
+# ====================================
+# Logs
+# ====================================
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ====================================
+# Python Virtual Environment
+# ====================================
+/.venv
+__pycache__/
+*.pyc
+*.pyo
+
+# ====================================
+# Temporary & Build Files
+# ====================================
+*.tmp
+*.temp
+*.cache
+
+# ====================================
+# Frontend Source (already converted to Blade)
+# ====================================
+/midsight-frontend
