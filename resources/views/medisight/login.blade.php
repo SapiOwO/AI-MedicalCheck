@@ -54,8 +54,9 @@
         <div class="form-footer">
             <span>
                 New here?
-                <a href="{{ url('/register') }}">Create a MediSight AI account</a>
+                <a href="{{ url('/register') }}">Create account</a>
             </span>
+            <a href="{{ url('/reset-password') }}" style="color: #94a3b8;">Forgot password?</a>
         </div>
 
         <hr style="border-color: rgba(31, 41, 55, 0.9); margin: 16px 0">

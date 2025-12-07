@@ -33,6 +33,16 @@ Route::get('/chat', function () {
     return view('medisight.chat');
 })->name('chat');
 
+// Password Reset Page
+Route::get('/reset-password', function () {
+    return view('medisight.reset-password');
+})->name('reset-password');
+
+// Detection History Page
+Route::get('/history', function () {
+    return view('medisight.history');
+})->name('history');
+
 /*
 |--------------------------------------------------------------------------
 | Legacy/Test Routes (kept for debugging)

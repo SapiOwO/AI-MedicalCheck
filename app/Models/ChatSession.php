@@ -6,11 +6,16 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
+use Carbon\Carbon;
 
 class ChatSession extends Model
 {
+    // Guest sessions expire after 24 hours
+    public const GUEST_EXPIRATION_HOURS = 24;
+
     protected $fillable = [
         'user_id',
+        'is_guest',
         'session_token',
         'initial_emotion',
         'initial_fatigue',
@@ -26,6 +31,7 @@ class ChatSession extends Model
         'status',
         'started_at',
         'ended_at',
+        'expires_at',
     ];
 
     protected $casts = [
@@ -36,20 +42,29 @@ class ChatSession extends Model
         'emotion_confidence' => 'float',
         'fatigue_confidence' => 'float',
         'pain_confidence' => 'float',
+        'is_guest' => 'boolean',
         'started_at' => 'datetime',
         'ended_at' => 'datetime',
+        'expires_at' => 'datetime',
     ];
 
     /**
-     * Boot method to generate session token automatically
+     * Boot method for model events
      */
     protected static function boot()
     {
         parent::boot();
         
         static::creating(function ($session) {
+            // Generate session token
             if (empty($session->session_token)) {
                 $session->session_token = Str::random(32);
+            }
+            
+            // Set guest flag and expiration
+            if (is_null($session->user_id)) {
+                $session->is_guest = true;
+                $session->expires_at = Carbon::now()->addHours(self::GUEST_EXPIRATION_HOURS);
             }
         });
     }
@@ -87,11 +102,39 @@ class ChatSession extends Model
     }
 
     /**
-     * Scope: Guest sessions (no user_id)
+     * Scope: Guest sessions only
      */
     public function scopeGuest($query)
     {
-        return $query->whereNull('user_id');
+        return $query->where('is_guest', true);
+    }
+
+    /**
+     * Scope: Logged-in user sessions only
+     */
+    public function scopeRegistered($query)
+    {
+        return $query->where('is_guest', false);
+    }
+
+    /**
+     * Scope: Expired guest sessions
+     */
+    public function scopeExpired($query)
+    {
+        return $query->where('is_guest', true)
+                     ->where('expires_at', '<', Carbon::now());
+    }
+
+    /**
+     * Scope: Not expired sessions
+     */
+    public function scopeNotExpired($query)
+    {
+        return $query->where(function ($q) {
+            $q->where('is_guest', false)
+              ->orWhere('expires_at', '>', Carbon::now());
+        });
     }
 
     /**
@@ -99,7 +142,18 @@ class ChatSession extends Model
      */
     public function isGuest(): bool
     {
-        return is_null($this->user_id);
+        return $this->is_guest || is_null($this->user_id);
+    }
+
+    /**
+     * Check if session is expired
+     */
+    public function isExpired(): bool
+    {
+        if (!$this->is_guest) {
+            return false; // Registered user sessions never expire
+        }
+        return $this->expires_at && Carbon::now()->gt($this->expires_at);
     }
 
     /**
@@ -112,4 +166,23 @@ class ChatSession extends Model
             'ended_at' => now(),
         ]);
     }
+
+    /**
+     * Delete all expired guest sessions
+     */
+    public static function cleanupExpiredGuests(): int
+    {
+        $expired = self::expired()->get();
+        $count = $expired->count();
+
+        foreach ($expired as $session) {
+            // Delete related messages first
+            $session->messages()->delete();
+            $session->detectionLogs()->delete();
+            $session->delete();
+        }
+
+        return $count;
+    }
 }
+

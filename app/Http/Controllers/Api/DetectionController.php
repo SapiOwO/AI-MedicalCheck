@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\ChatSession;
 use App\Models\DetectionLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
@@ -170,4 +171,46 @@ class DetectionController extends Controller
             ], 503);
         }
     }
+
+    /**
+     * Get detection history for authenticated user
+     * Shows: tanggal, jam, menit, detik
+     */
+    public function history(Request $request)
+    {
+        $user = $request->user();
+
+        $sessions = ChatSession::where('user_id', $user->id)
+            ->whereNotNull('initial_emotion')
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(function ($session) {
+                return [
+                    'id' => $session->id,
+                    'emotion' => $session->initial_emotion,
+                    'fatigue' => $session->initial_fatigue,
+                    'pain' => $session->initial_pain,
+                    'emotion_confidence' => $session->emotion_confidence,
+                    'fatigue_confidence' => $session->fatigue_confidence,
+                    'pain_confidence' => $session->pain_confidence,
+                    'status' => $session->status,
+                    'message_count' => $session->messages()->count(),
+                    // Full datetime format: Y-m-d H:i:s
+                    'detected_at' => $session->created_at->format('Y-m-d H:i:s'),
+                    'date' => $session->created_at->format('Y-m-d'),
+                    'time' => $session->created_at->format('H:i:s'),
+                    'day' => $session->created_at->format('l'),
+                    'relative' => $session->created_at->diffForHumans(),
+                ];
+            });
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'history' => $sessions,
+                'total' => $sessions->count(),
+            ],
+        ]);
+    }
 }
+
