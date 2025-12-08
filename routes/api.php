@@ -38,6 +38,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/chat/session/{id}', [ChatSessionController::class, 'show']);
     Route::post('/chat/session/{id}/end', [ChatSessionController::class, 'end']);
     
+    // Session Start and Update (inside auth so user_id is captured)
+    Route::post('/chat/session/start', [ChatSessionController::class, 'start']);
+    Route::post('/session/update', [ChatSessionController::class, 'updateProfile']);
+    
     // Detection History
     Route::get('/detection/history', [DetectionController::class, 'history']);
     
@@ -47,16 +51,17 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/export/history/csv', [ExportController::class, 'exportHistoryCSV']);
 });
 
-// Guest-Friendly Routes (Optional auth)
+// Guest-Friendly Routes (No auth required)
 Route::post('/detect/multi', [DetectionController::class, 'multiDetect']);
 Route::post('/detect/emotion', [DetectionController::class, 'detectEmotion']);
 Route::post('/detect/fatigue', [DetectionController::class, 'detectFatigue']);
 Route::post('/detect/pain', [DetectionController::class, 'detectPain']);
 
-// Chat (Works for both authenticated and guest)
-Route::post('/chat/session/start', [ChatSessionController::class, 'start']);
+// Chat messages (Works for both authenticated and guest via session_token)
 Route::post('/chat/message', [ChatMessageController::class, 'send']);
 Route::get('/chat/session/{sessionId}/messages', [ChatMessageController::class, 'index']);
 
-// Session Update (for profile page)
-Route::post('/session/update', [ChatSessionController::class, 'updateProfile']);
+// Guest session routes (for users without login)
+Route::post('/guest/session/start', [ChatSessionController::class, 'start']);
+Route::post('/guest/session/update', [ChatSessionController::class, 'updateProfile']);
+

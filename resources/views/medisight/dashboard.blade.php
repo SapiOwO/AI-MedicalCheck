@@ -91,21 +91,45 @@ async function loadSessions() {
         });
         
         const data = await response.json();
+        console.log('Sessions data:', data);
         
         if (data.success && data.data.sessions.length > 0) {
-            sessionList.innerHTML = data.data.sessions.map(session => `
-                <a href="{{ url('/chat') }}?session=${session.id}" class="history-item">
-                    <div class="history-meta">
-                        <strong>Session · ${new Date(session.started_at).toLocaleDateString()} · ${new Date(session.started_at).toLocaleTimeString()}</strong>
-                        <span class="text-muted">
-                            Emotion: ${session.initial_emotion || 'N/A'} · 
-                            ${session.message_count || 0} messages · 
-                            ${session.status}
-                        </span>
-                    </div>
-                    <span class="pill">Open</span>
-                </a>
-            `).join('');
+            sessionList.innerHTML = data.data.sessions.map(session => {
+                const date = session.started_at || session.created_at;
+                const dateStr = date ? new Date(date).toLocaleDateString() : 'Unknown';
+                const timeStr = date ? new Date(date).toLocaleTimeString() : '';
+                
+                // Get emotion from ai_detection_data or initial_emotion
+                let emotion = 'N/A';
+                if (session.ai_detection_data && session.ai_detection_data.emotion) {
+                    emotion = session.ai_detection_data.emotion.emotion || session.ai_detection_data.emotion;
+                } else if (session.initial_emotion) {
+                    emotion = session.initial_emotion;
+                }
+                
+                // Get symptoms count
+                let symptomsCount = 0;
+                if (session.symptom_data) {
+                    symptomsCount = Object.values(session.symptom_data).filter(v => v === true).length;
+                }
+                
+                // Status badge color
+                const statusClass = session.status === 'completed' ? 'success' : 'active';
+                
+                return `
+                    <a href="{{ url('/session/profile') }}?session=${session.id}" class="history-item">
+                        <div class="history-meta">
+                            <strong>Session #${session.id} · ${dateStr} ${timeStr}</strong>
+                            <span class="text-muted">
+                                Emotion: ${emotion} · 
+                                ${symptomsCount} symptoms · 
+                                ${session.status || 'active'}
+                            </span>
+                        </div>
+                        <span class="pill">${session.status === 'completed' ? 'Completed' : 'Open'}</span>
+                    </a>
+                `;
+            }).join('');
         } else {
             sessionList.innerHTML = `
                 <div class="history-item" style="cursor: default; justify-content: center;">

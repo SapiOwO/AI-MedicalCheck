@@ -78,10 +78,16 @@ class ChatSessionController extends Controller
                         'initial_emotion' => $session->initial_emotion,
                         'initial_fatigue' => $session->initial_fatigue,
                         'initial_pain' => $session->initial_pain,
+                        'age' => $session->age,
+                        'gender' => $session->gender,
+                        'symptom_data' => $session->symptom_data,
+                        'ai_detection_data' => $session->ai_detection_data,
+                        'current_step' => $session->current_step,
                         'status' => $session->status,
                         'message_count' => $session->messages_count,
-                        'started_at' => $session->started_at,
+                        'started_at' => $session->started_at ?? $session->created_at,
                         'ended_at' => $session->ended_at,
+                        'created_at' => $session->created_at,
                     ];
                 }),
             ],
@@ -191,47 +197,65 @@ class ChatSessionController extends Controller
     public function updateProfile(Request $request)
     {
         $request->validate([
-            'session_id' => 'required|integer',
+            'session_id' => 'nullable|integer',
             'session_token' => 'nullable|string',
             'age' => 'nullable|integer|min:1|max:120',
             'gender' => 'nullable|string|in:male,female,other',
             'symptom_data' => 'nullable|array',
             'ai_detection_data' => 'nullable|array',
+            'current_step' => 'nullable|string',
         ]);
 
-        $query = ChatSession::query();
+        $session = null;
 
-        // Check access
-        if (auth()->check()) {
-            $query->where('user_id', auth()->id());
-        } else {
-            $sessionToken = $request->session_token;
-            if (!$sessionToken) {
-                return response()->json([
-                    'success' => false,
-                    'error' => 'Session token required for guest access',
-                ], 401);
-            }
-            $query->where('session_token', $sessionToken);
+        // Try to find session by ID first (for logged in users)
+        if (auth()->check() && $request->session_id) {
+            $session = ChatSession::where('user_id', auth()->id())
+                ->find($request->session_id);
         }
-
-        $session = $query->find($request->session_id);
+        
+        // If not found, try by session_token (for guests)
+        if (!$session && $request->session_token) {
+            $session = ChatSession::where('session_token', $request->session_token)->first();
+        }
+        
+        // If still not found but we have session_id, try without user check
+        if (!$session && $request->session_id) {
+            $session = ChatSession::find($request->session_id);
+        }
 
         if (!$session) {
             return response()->json([
                 'success' => false,
-                'error' => 'Session not found or access denied',
+                'error' => 'Session not found',
             ], 404);
         }
 
-        // Update profile data
-        $session->update([
-            'age' => $request->age,
-            'gender' => $request->gender,
-            'symptom_data' => $request->symptom_data,
-            'ai_detection_data' => $request->ai_detection_data,
-            'current_step' => 'profile',
-        ]);
+        // Build update data
+        $updateData = [];
+        
+        if ($request->has('age')) {
+            $updateData['age'] = $request->age;
+        }
+        if ($request->has('gender')) {
+            $updateData['gender'] = $request->gender;
+        }
+        if ($request->has('symptom_data')) {
+            $updateData['symptom_data'] = $request->symptom_data;
+        }
+        if ($request->has('ai_detection_data')) {
+            $updateData['ai_detection_data'] = $request->ai_detection_data;
+        }
+        if ($request->has('current_step')) {
+            $updateData['current_step'] = $request->current_step;
+            
+            // If completed, also mark status as completed
+            if ($request->current_step === 'completed') {
+                $updateData['status'] = 'completed';
+            }
+        }
+
+        $session->update($updateData);
 
         return response()->json([
             'success' => true,
@@ -243,6 +267,8 @@ class ChatSessionController extends Controller
                     'gender' => $session->gender,
                     'symptom_data' => $session->symptom_data,
                     'ai_detection_data' => $session->ai_detection_data,
+                    'current_step' => $session->current_step,
+                    'status' => $session->status,
                 ],
             ],
         ]);
