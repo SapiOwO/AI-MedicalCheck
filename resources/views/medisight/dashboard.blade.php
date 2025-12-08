@@ -4,7 +4,7 @@
 
 @section('nav-links')
     <span class="text-muted" id="userEmail">Loading...</span>
-    <a href="{{ url('/chat') }}" class="nav-cta">Start new session</a>
+    <a href="{{ url('/') }}">Landing</a>
     <a href="#" id="logoutBtn">Logout</a>
 @endsection
 
@@ -34,39 +34,31 @@
         <div class="card">
             <h2 class="section-title">Start a new analysis</h2>
             <p class="section-subtitle">
-                We'll open the camera, run the AI models once, and then move
-                you directly into the chatbot with your latest readings.
+                We'll guide you through a simple 2-step process:
+                Camera Detection → Profile & AI Chat
             </p>
 
             <ul class="history-list">
                 <li class="history-item" style="cursor: default">
                     <div class="history-meta">
-                        <strong>1. Camera & detection</strong>
+                        <strong>Step 1: Camera Detection</strong>
                         <span class="text-muted">
-                            Browser asks for camera permission and captures a frame.
+                            Take a photo for AI analysis (emotion, fatigue, pain)
                         </span>
                     </div>
                 </li>
                 <li class="history-item" style="cursor: default">
                     <div class="history-meta">
-                        <strong>2. Laravel → Python</strong>
+                        <strong>Step 2: Profile & AI Chat</strong>
                         <span class="text-muted">
-                            Backend runs emotion detection model and receives JSON.
-                        </span>
-                    </div>
-                </li>
-                <li class="history-item" style="cursor: default">
-                    <div class="history-meta">
-                        <strong>3. AI health chat</strong>
-                        <span class="text-muted">
-                            JSON values are used as context for the chatbot.
+                            Review results, answer questions, and chat with AI
                         </span>
                     </div>
                 </li>
             </ul>
 
-            <a href="{{ url('/chat') }}" class="btn-primary" style="margin-top: 16px; display: inline-flex">
-                Start new MediSight session
+            <a href="{{ url('/session/camera') }}" class="btn-primary" style="margin-top: 16px; display: inline-flex; width: 100%;">
+                Start New Session
             </a>
         </div>
     </div>

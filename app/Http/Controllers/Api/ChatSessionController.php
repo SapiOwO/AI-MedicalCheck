@@ -184,4 +184,68 @@ class ChatSessionController extends Controller
             'message' => 'Session ended successfully',
         ]);
     }
+
+    /**
+     * Update session profile data (for profile page)
+     */
+    public function updateProfile(Request $request)
+    {
+        $request->validate([
+            'session_id' => 'required|integer',
+            'session_token' => 'nullable|string',
+            'age' => 'nullable|integer|min:1|max:120',
+            'gender' => 'nullable|string|in:male,female,other',
+            'symptom_data' => 'nullable|array',
+            'ai_detection_data' => 'nullable|array',
+        ]);
+
+        $query = ChatSession::query();
+
+        // Check access
+        if (auth()->check()) {
+            $query->where('user_id', auth()->id());
+        } else {
+            $sessionToken = $request->session_token;
+            if (!$sessionToken) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Session token required for guest access',
+                ], 401);
+            }
+            $query->where('session_token', $sessionToken);
+        }
+
+        $session = $query->find($request->session_id);
+
+        if (!$session) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Session not found or access denied',
+            ], 404);
+        }
+
+        // Update profile data
+        $session->update([
+            'age' => $request->age,
+            'gender' => $request->gender,
+            'symptom_data' => $request->symptom_data,
+            'ai_detection_data' => $request->ai_detection_data,
+            'current_step' => 'profile',
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Profile updated successfully',
+            'data' => [
+                'session' => [
+                    'id' => $session->id,
+                    'age' => $session->age,
+                    'gender' => $session->gender,
+                    'symptom_data' => $session->symptom_data,
+                    'ai_detection_data' => $session->ai_detection_data,
+                ],
+            ],
+        ]);
+    }
 }
+

@@ -58,4 +58,5 @@ Route::post('/chat/session/start', [ChatSessionController::class, 'start']);
 Route::post('/chat/message', [ChatMessageController::class, 'send']);
 Route::get('/chat/session/{sessionId}/messages', [ChatMessageController::class, 'index']);
 
-
+// Session Update (for profile page)
+Route::post('/session/update', [ChatSessionController::class, 'updateProfile']);

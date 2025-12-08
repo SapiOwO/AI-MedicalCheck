@@ -43,6 +43,19 @@ Route::get('/history', function () {
     return view('medisight.history');
 })->name('history');
 
+// New Multi-Step Session Flow
+Route::get('/session/start', function () {
+    return view('medisight.session-start');
+})->name('session.start');
+
+Route::get('/session/camera', function () {
+    return view('medisight.session-camera');
+})->name('session.camera');
+
+Route::get('/session/profile', function () {
+    return view('medisight.session-profile');
+})->name('session.profile');
+
 /*
 |--------------------------------------------------------------------------
 | Legacy/Test Routes (kept for debugging)

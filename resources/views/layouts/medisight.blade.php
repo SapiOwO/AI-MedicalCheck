@@ -65,6 +65,16 @@
             color: #1e293b;
         }
         
+        /* Nav CTA Button - FIX VISIBILITY */
+        body.light-mode .nav-cta {
+            background: var(--accent) !important;
+            color: #ffffff !important;
+        }
+        
+        body.light-mode .nav-cta:hover {
+            background: #4338ca !important;
+        }
+        
         /* Badges and Pills - FIX VISIBILITY */
         body.light-mode .badge {
             background: #ffffff;

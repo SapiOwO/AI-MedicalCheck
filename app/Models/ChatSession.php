@@ -17,6 +17,7 @@ class ChatSession extends Model
         'user_id',
         'is_guest',
         'session_token',
+        // Legacy fields (kept for backwards compatibility)
         'initial_emotion',
         'initial_fatigue',
         'initial_pain',
@@ -28,6 +29,14 @@ class ChatSession extends Model
         'pain_probabilities',
         'face_bbox',
         'face_image_path',
+        // New flexible fields
+        'age',
+        'gender',
+        'ai_detection_data',    // JSON: {"emotion": {"value": "sad", "confidence": 0.85}, ...}
+        'symptom_data',         // JSON: {"fever": true, "cough": false, ...}
+        'captured_image_path',
+        'current_step',         // camera, profile, chat, completed
+        // Status fields
         'status',
         'started_at',
         'ended_at',
@@ -39,10 +48,13 @@ class ChatSession extends Model
         'fatigue_probabilities' => 'array',
         'pain_probabilities' => 'array',
         'face_bbox' => 'array',
+        'ai_detection_data' => 'array',
+        'symptom_data' => 'array',
         'emotion_confidence' => 'float',
         'fatigue_confidence' => 'float',
         'pain_confidence' => 'float',
         'is_guest' => 'boolean',
+        'age' => 'integer',
         'started_at' => 'datetime',
         'ended_at' => 'datetime',
         'expires_at' => 'datetime',
