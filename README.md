@@ -1,59 +1,200 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# MediSight-AI: Real-Time Medical Emotion Analysis
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+![Laravel](https://img.shields.io/badge/Laravel-12-FF2D20?style=for-the-badge&logo=laravel)
+![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python)
+![TailwindCSS](https://img.shields.io/badge/Tailwind-4.0-38B2AC?style=for-the-badge&logo=tailwind-css)
+![PyTorch](https://img.shields.io/badge/PyTorch-EE4C2C?style=for-the-badge&logo=pytorch)
 
-## About Laravel
+**MediSight-AI** is a cutting-edge web application designed to assist medical professionals by providing real-time analysis of patient emotional states, fatigue levels, and pain indicators during consultations. Built with a robust **Laravel 12** backend and a high-performance **Python FastAPI** AI service.
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+---
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## 🚀 Features
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+### ❤️ Medical Intelligence
+- **Real-time Emotion Detection**: Instantly identifies 7 core emotions (Angry, Disgust, Fear, Happy, Neutral, Sad, Surprise).
+- **Fatigue Monitoring**: Detects signs of drowsiness and fatigue.
+- **Pain Level Assessment**: AI-driven analysis of facial cues indicating pain.
+- **High Accuracy**: Powered by custom CNN models optimized for medical contexts.
 
-## Learning Laravel
+### 💻 Modern Tech Stack
+- **Seamless Integration**: Laravel communicates with Python AI microservice via HTTP.
+- **Beautiful UI/UX**: Built with Blade and TailwindCSS v4 for a responsive, clean interface.
+- **Webcam Support**: Direct browser integration for live video analysis.
+- **Image Upload**: Supports high-res medical imagery analysis.
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+---
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+## 🛠️ Prerequisites
 
-## Laravel Sponsors
+Before you begin, ensure you have the following installed:
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+- **PHP**: 8.2 or higher
+- **Composer**: Latest version
+- **Node.js**: v18+ & NPM
+- **Python**: 3.10+ (with pip)
+- **Database**: SQLite (built-in) or MySQL/MariaDB
+- **Git**
 
-### Premium Partners
+---
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+## 📦 Installation Guide
 
-## Contributing
+### 1. Setup Laravel Application
+```bash
+# Clone the repository
+git clone https://github.com/your-username/medisight-ai.git
+cd medisight-ai
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+# Install PHP dependencies
+composer install
 
-## Code of Conduct
+# Copy environment file
+cp .env.example .env
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+# Generate application key
+php artisan key:generate
 
-## Security Vulnerabilities
+# Install frontend dependencies (Tailwind 4 + Vite)
+npm install
+npm run build
+```
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+### 2. Setup Database
+```bash
+# Run migrations (SQLite is default, requires no extra config)
+php artisan migrate
+```
 
-## License
+### 3. Setup AI Service (Python)
+```bash
+cd python_service
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+# Create virtual environment (Recommended)
+python -m venv venv
+# Windows:
+.\venv\Scripts\activate
+# Linux/Mac:
+source venv/bin/activate
+
+# Install dependencies (Torch, FastAPI, OpenCV, etc.)
+pip install -r requirements.txt
+```
+
+### 4. Place AI Models
+Ensure your trained `.pth` models are placed in the `AImodel` directory in the project root:
+```
+Laravel/
+├── AImodel/
+│   ├── emotion_best.pth    ✅ Required
+│   ├── fatigue_best.pth    ✅ Optional
+│   └── pain_best.pth       ✅ Optional
+```
+
+---
+
+## 🖥️ Running Locally
+
+You need to run both the Laravel server and the Python AI service.
+
+**Option 1: Two Terminals (Easiest)**
+
+**Terminal 1 (Laravel):**
+```bash
+php artisan serve
+# Accessible at http://localhost:8000
+```
+
+**Terminal 2 (Python API):**
+```bash
+cd python_service
+python api.py
+# API runs at http://localhost:8001
+```
+
+**Option 2: Concurrently (Dev Mode)**
+If configured in `composer.json`, you can run:
+```bash
+npm run dev
+```
+
+---
+
+## 🚀 Deployment (Production)
+
+For a production environment (Windows Server or Linux), we use **PM2** to keep the Python service alive and auto-restart it.
+
+### 1. Install PM2
+```bash
+npm install -g pm2
+# If on Windows, also install:
+npm install -g pm2-windows-startup
+```
+
+### 2. Configure & Start Services
+The project includes an `ecosystem.config.json` for easy management.
+
+```bash
+# Start the Python AI Service using PM2
+pm2 start ecosystem.config.json
+
+# Check status
+pm2 list
+pm2 logs medical-check-api
+```
+
+### 3. Setup Auto-start on Boot
+**Windows:**
+```bash
+pm2-startup install
+pm2 save
+```
+
+**Linux:**
+```bash
+pm2 startup
+pm2 save
+```
+
+### 4. Optimize Laravel
+```bash
+# Optimize autoloader
+composer install --optimize-autoloader --no-dev
+
+# Cache config and routes
+php artisan config:cache
+php artisan route:cache
+php artisan view:cache
+```
+
+---
+
+## 🧪 Testing
+
+1. **API Health Check**: Python service status.
+   - URL: `http://localhost:8001/health`
+   - Response: `{"status": "healthy", "model_status": "loaded"}`
+
+2. **Web Interface**:
+   - Go to `http://localhost:8000/medical-check` (or your domain).
+   - Allow camera access.
+   - Click **"Start Camera"** -> **"Analyze"**.
+
+---
+
+## ⚠️ Troubleshooting
+
+- **Error: "Model not found"**: Check `AImodel/` folder and ensure `emotion_best.pth` exists.
+- **Port Conflicts**:
+    - Laravel default: 8000.
+    - Python API default: 8001.
+    - Change ports in `.env` (Laravel) and `api.py` (Python) if needed.
+- **CUDA/GPU Issues**: If you have an NVIDIA GPU but it's not detected, reinstall Torch with CUDA support:
+  ```bash
+  pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118
+  ```
+
+---
+
+## 📄 License
+This project is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
