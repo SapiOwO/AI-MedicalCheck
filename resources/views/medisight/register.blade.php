@@ -119,7 +119,14 @@ document.getElementById('registerForm').addEventListener('submit', async functio
         if (data.success) {
             successMsg.textContent = 'Account created! Redirecting to login...';
             successMsg.style.display = 'block';
-            setTimeout(() => { window.location.href = '{{ url("/login") }}'; }, 2000);
+            
+            // Check if there's pending session - redirect to login with param
+            var pendingData = localStorage.getItem('pending_session_data');
+            if (pendingData) {
+                setTimeout(() => { window.location.href = '{{ url("/login") }}?redirect=save_session'; }, 2000);
+            } else {
+                setTimeout(() => { window.location.href = '{{ url("/login") }}'; }, 2000);
+            }
         } else {
             let errorText = data.message || 'Registration failed.';
             if (data.errors) { errorText = Object.values(data.errors).flat().join(' '); }
@@ -135,6 +142,13 @@ document.getElementById('registerForm').addEventListener('submit', async functio
         registerBtn.disabled = false;
     }
 });
+
+// Check if there's a pending session from guest
+var urlParams = new URLSearchParams(window.location.search);
+if (urlParams.get('redirect') === 'save_session' || localStorage.getItem('pending_session_data')) {
+    document.getElementById('successMessage').style.display = 'block';
+    document.getElementById('successMessage').textContent = 'Create an account to save your session data permanently.';
+}
 
 if (localStorage.getItem('medisight_token')) { window.location.href = '{{ url("/dashboard") }}'; }
 </script>

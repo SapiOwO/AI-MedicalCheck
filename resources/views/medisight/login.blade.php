@@ -104,6 +104,46 @@ document.getElementById('loginForm').addEventListener('submit', async function(e
             localStorage.setItem('medisight_token', data.data.token);
             localStorage.setItem('medisight_user', JSON.stringify(data.data.user));
             
+            // Check if there's pending guest session to save
+            var pendingData = localStorage.getItem('pending_session_data');
+            if (pendingData) {
+                try {
+                    var sessionData = JSON.parse(pendingData);
+                    
+                    // Create new session for this user
+                    var sessionRes = await fetch('{{ url("/api/chat/session/start") }}', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'Authorization': 'Bearer ' + data.data.token
+                        },
+                        body: JSON.stringify({ current_step: 'profile' })
+                    });
+                    var sessionResult = await sessionRes.json();
+                    
+                    if (sessionResult.success) {
+                        sessionData.session_id = sessionResult.data.session.id;
+                        
+                        // Save the session data
+                        await fetch('{{ url("/api/session/update") }}', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Accept': 'application/json',
+                                'Authorization': 'Bearer ' + data.data.token
+                            },
+                            body: JSON.stringify(sessionData)
+                        });
+                    }
+                    
+                    localStorage.removeItem('pending_session_data');
+                    alert('Your guest session has been saved to your account!');
+                } catch(e) {
+                    console.error('Failed to save pending session:', e);
+                }
+            }
+            
             // Redirect to dashboard
             window.location.href = '{{ url("/dashboard") }}';
         } else {
@@ -119,6 +159,14 @@ document.getElementById('loginForm').addEventListener('submit', async function(e
         loginBtn.disabled = false;
     }
 });
+
+// Check if there's a pending session from guest
+var urlParams = new URLSearchParams(window.location.search);
+if (urlParams.get('redirect') === 'save_session') {
+    document.getElementById('errorMessage').style.display = 'block';
+    document.getElementById('errorMessage').style.color = '#22c55e';
+    document.getElementById('errorMessage').textContent = 'Please login or create an account to save your session data.';
+}
 
 // Check if already logged in
 if (localStorage.getItem('medisight_token')) {

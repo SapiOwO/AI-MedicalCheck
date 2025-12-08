@@ -53,6 +53,17 @@
         font-size: 14px;
     }
     
+    .form-group input.error,
+    .form-group select.error {
+        border-color: #ef4444 !important;
+    }
+    
+    .error-text {
+        color: #ef4444;
+        font-size: 11px;
+        margin-top: 2px;
+    }
+    
     .symptom-toggle {
         display: flex;
         align-items: center;
@@ -193,6 +204,22 @@
         margin-top: 4px;
     }
     
+    .validation-errors {
+        background: rgba(239, 68, 68, 0.1);
+        border: 1px solid #ef4444;
+        border-radius: 12px;
+        padding: 12px 16px;
+        margin-bottom: 12px;
+        display: none;
+    }
+    
+    .validation-errors ul {
+        margin: 0;
+        padding-left: 20px;
+        color: #ef4444;
+        font-size: 13px;
+    }
+    
     /* Light mode fixes */
     body.light-mode .form-group input,
     body.light-mode .form-group select {
@@ -282,23 +309,25 @@
             <form class="profile-form" id="profileForm">
                 <div class="form-row">
                     <div class="form-group">
-                        <label for="age">Age</label>
-                        <input type="number" id="age" min="1" max="120" placeholder="Enter age">
+                        <label for="age">Age <span style="color: #ef4444;">*</span></label>
+                        <input type="number" id="age" min="1" max="120" placeholder="Enter age" required>
+                        <span class="error-text" id="ageError" style="display: none;">Age is required</span>
                     </div>
                     <div class="form-group">
-                        <label for="gender">Gender</label>
-                        <select id="gender">
+                        <label for="gender">Gender <span style="color: #ef4444;">*</span></label>
+                        <select id="gender" required>
                             <option value="">Select...</option>
                             <option value="male">Male</option>
                             <option value="female">Female</option>
                             <option value="other">Other</option>
                         </select>
+                        <span class="error-text" id="genderError" style="display: none;">Gender is required</span>
                     </div>
                 </div>
                 
                 <div class="form-group">
                     <label for="emotion">Detected Emotion</label>
-                    <input type="text" id="emotion" readonly placeholder="Not detected (run camera first)">
+                    <input type="text" id="emotion" readonly placeholder="Not detected (camera skipped)">
                 </div>
                 
                 <div class="form-group">
@@ -356,6 +385,11 @@
         </div>
     </div>
     
+    <!-- Validation Errors -->
+    <div class="validation-errors" id="validationErrors">
+        <ul id="errorList"></ul>
+    </div>
+    
     <!-- Finalize Session Buttons -->
     <div class="finalize-section">
         <button class="btn-primary" id="finalizeBtn" style="padding: 14px 32px;">
@@ -376,6 +410,7 @@
 (function() {
     var API_URL = '{{ url("/api") }}';
     var token = localStorage.getItem('medisight_token');
+    var isGuest = !token;
     var sessionId = localStorage.getItem('current_session_id');
     var sessionToken = localStorage.getItem('current_session_token');
     var detectionData = {};
@@ -398,6 +433,8 @@
     var exportPdfBtn = document.getElementById('exportPdfBtn');
     var exportCsvBtn = document.getElementById('exportCsvBtn');
     var lockNotice = document.getElementById('lockNotice');
+    var validationErrors = document.getElementById('validationErrors');
+    var errorList = document.getElementById('errorList');
     
     // Load detection data
     try {
@@ -407,15 +444,17 @@
         console.log('No detection data');
     }
     
-    // Populate emotion field
+    // Get emotion string for AI context
+    var detectedEmotion = null;
+    var emotionConfidence = null;
     if (detectionData && detectionData.emotion && detectionData.emotion.emotion) {
-        var emotionText = detectionData.emotion.emotion;
-        if (detectionData.emotion.confidence) {
-            emotionText += ' (' + (detectionData.emotion.confidence * 100).toFixed(0) + '% confidence)';
+        detectedEmotion = detectionData.emotion.emotion;
+        emotionConfidence = detectionData.emotion.confidence;
+        var emotionText = detectedEmotion;
+        if (emotionConfidence) {
+            emotionText += ' (' + (emotionConfidence * 100).toFixed(0) + '% confidence)';
         }
         document.getElementById('emotion').value = emotionText;
-    } else {
-        document.getElementById('emotion').value = 'Not detected - run camera detection first';
     }
     
     // Unlock symptom toggles after all questions answered
@@ -427,7 +466,7 @@
         if (lockNotice) lockNotice.style.display = 'none';
     }
     
-    // Add symptom toggle listeners (only work if not locked)
+    // Add symptom toggle listeners
     document.querySelectorAll('.symptom-toggle').forEach(function(el) {
         el.addEventListener('click', function() {
             if (this.classList.contains('locked')) {
@@ -458,7 +497,6 @@
         chatMessages.appendChild(div);
         chatMessages.scrollTop = chatMessages.scrollHeight;
         
-        // Add button listeners
         if (showButtons) {
             div.querySelectorAll('.quick-reply-btn').forEach(function(btn) {
                 btn.addEventListener('click', function() {
@@ -489,7 +527,6 @@
     
     // Answer question
     function answerQuestion(isYes) {
-        // Remove buttons
         document.querySelectorAll('.quick-replies').forEach(function(b) { b.remove(); });
         
         addUserMessage(isYes ? 'Yes' : 'No');
@@ -497,7 +534,6 @@
         var key = questions[currentQuestion].key;
         symptomData[key] = isYes;
         
-        // Update toggle
         var toggle = document.querySelector('.symptom-toggle[data-symptom="' + key + '"]');
         if (toggle) {
             if (isYes) toggle.classList.add('active');
@@ -529,7 +565,7 @@
         addBotMessage(msg);
     }
     
-    // Send message
+    // Send message - AI aware of emotion data
     function sendMessage() {
         var message = chatInput.value.trim();
         if (!message) return;
@@ -537,26 +573,126 @@
         addUserMessage(message);
         chatInput.value = '';
         
+        // Check if user is asking about their emotion
+        var lowerMsg = message.toLowerCase();
+        var response = '';
+        
+        if (lowerMsg.includes('sad') || lowerMsg.includes('emotion') || lowerMsg.includes('feel') || 
+            lowerMsg.includes('mood') || lowerMsg.includes('happy') || lowerMsg.includes('angry')) {
+            
+            if (detectedEmotion) {
+                var confPercent = emotionConfidence ? (emotionConfidence * 100).toFixed(0) + '%' : 'unknown';
+                response = 'Based on my camera analysis, I detected that you appear to be feeling "' + detectedEmotion + 
+                           '" with ' + confPercent + ' confidence. ';
+                
+                if (detectedEmotion === 'sad') {
+                    response += 'I noticed some sadness in your expression. Would you like to talk about what might be causing this?';
+                } else if (detectedEmotion === 'happy') {
+                    response += 'You seem to be in a good mood! That is great for your overall wellbeing.';
+                } else if (detectedEmotion === 'angry' || detectedEmotion === 'fear') {
+                    response += 'This emotional state might be affecting your physical health. Let me know if you want to discuss it.';
+                } else {
+                    response += 'Is there anything specific you would like to discuss about how you are feeling?';
+                }
+            } else {
+                response = 'I do not have emotion detection data for you. You may have skipped the camera step. ' +
+                           'You can go back and take a photo for AI emotion analysis, or continue with the symptom assessment.';
+            }
+        } else {
+            response = 'Thank you for your message. ';
+            if (detectedEmotion) {
+                response += 'By the way, I detected that you are feeling "' + detectedEmotion + '" based on your photo. ';
+            }
+            if (!allQuestionsAnswered) {
+                response += 'Please continue answering the symptom questions above.';
+            } else {
+                response += 'You can click Finalize Session when you are ready to save your data.';
+            }
+        }
+        
         setTimeout(function() {
-            addBotMessage('Thank you for your message. Please continue answering the symptom questions or click Finalize Session when you are done.');
+            addBotMessage(response);
         }, 500);
     }
     
-    // Finalize session - save to database
+    // Validate before finalize
+    function validateForm() {
+        var errors = [];
+        var ageInput = document.getElementById('age');
+        var genderSelect = document.getElementById('gender');
+        
+        // Reset errors
+        ageInput.classList.remove('error');
+        genderSelect.classList.remove('error');
+        document.getElementById('ageError').style.display = 'none';
+        document.getElementById('genderError').style.display = 'none';
+        
+        // Check age
+        if (!ageInput.value || ageInput.value < 1) {
+            errors.push('Age is required');
+            ageInput.classList.add('error');
+            document.getElementById('ageError').style.display = 'block';
+        }
+        
+        // Check gender
+        if (!genderSelect.value) {
+            errors.push('Gender is required');
+            genderSelect.classList.add('error');
+            document.getElementById('genderError').style.display = 'block';
+        }
+        
+        // Check if all questions answered
+        if (!allQuestionsAnswered) {
+            errors.push('Please answer all symptom questions in the chatbot');
+        }
+        
+        if (errors.length > 0) {
+            errorList.innerHTML = errors.map(function(e) { return '<li>' + e + '</li>'; }).join('');
+            validationErrors.style.display = 'block';
+            return false;
+        }
+        
+        validationErrors.style.display = 'none';
+        return true;
+    }
+    
+    // Finalize session
     function finalizeSession() {
+        if (!validateForm()) {
+            return;
+        }
+        
         finalizeBtn.disabled = true;
         finalizeBtn.textContent = 'Saving...';
         
         var age = document.getElementById('age').value;
         var gender = document.getElementById('gender').value;
         
+        // Prepare data to save
+        var sessionData = {
+            age: parseInt(age),
+            gender: gender,
+            symptom_data: symptomData,
+            ai_detection_data: detectionData,
+            current_step: 'completed'
+        };
+        
+        // If guest, save to localStorage and redirect to login
+        if (isGuest) {
+            localStorage.setItem('pending_session_data', JSON.stringify(sessionData));
+            alert('Your session has been saved temporarily. Please login or sign up to save it permanently.');
+            window.location.href = '{{ url("/login") }}?redirect=save_session';
+            return;
+        }
+        
+        // Logged in user - save to database
         var headers = {
             'Content-Type': 'application/json',
-            'Accept': 'application/json'
+            'Accept': 'application/json',
+            'Authorization': 'Bearer ' + token
         };
-        if (token) headers['Authorization'] = 'Bearer ' + token;
         
-        // If no session exists, create one first
+        // Create session if doesn't exist
         var createSessionIfNeeded = new Promise(function(resolve) {
             if (sessionId) {
                 resolve();
@@ -581,26 +717,17 @@
         });
         
         createSessionIfNeeded.then(function() {
-            var body = {
-                session_id: parseInt(sessionId) || null,
-                age: age ? parseInt(age) : null,
-                gender: gender || null,
-                symptom_data: symptomData,
-                ai_detection_data: detectionData,
-                current_step: 'completed'
-            };
-            if (!token && sessionToken) body.session_token = sessionToken;
+            sessionData.session_id = parseInt(sessionId);
             
             return fetch(API_URL + '/session/update', {
                 method: 'POST',
                 headers: headers,
-                body: JSON.stringify(body)
+                body: JSON.stringify(sessionData)
             });
         })
         .then(function(res) { return res.json(); })
         .then(function(data) {
             if (data.success) {
-                // Clear localStorage
                 localStorage.removeItem('current_session_id');
                 localStorage.removeItem('current_session_token');
                 localStorage.removeItem('detection_data');
@@ -619,7 +746,7 @@
         });
     }
     
-    // Export PDF - professional format
+    // Export PDF
     function exportPDF() {
         var age = document.getElementById('age').value || 'Not specified';
         var gender = document.getElementById('gender').value || 'Not specified';
@@ -659,47 +786,25 @@
         html += '@media print { body { padding: 20px; } }';
         html += '</style></head><body>';
         
-        html += '<div class="header">';
-        html += '<h1>MediSight AI</h1>';
-        html += '<p>Health Assessment Report</p>';
-        html += '</div>';
+        html += '<div class="header"><h1>MediSight AI</h1><p>Health Assessment Report</p></div>';
         
-        html += '<div class="section">';
-        html += '<h2>Patient Information</h2>';
+        html += '<div class="section"><h2>Patient Information</h2>';
         html += '<div class="info-grid">';
         html += '<div class="info-item"><label>Age</label><span>' + age + '</span></div>';
         html += '<div class="info-item"><label>Gender</label><span>' + gender + '</span></div>';
         html += '<div class="info-item"><label>Detected Emotion</label><span>' + emotion + '</span></div>';
         html += '<div class="info-item"><label>Report Date</label><span>' + date + '</span></div>';
-        html += '</div>';
-        html += '</div>';
+        html += '</div></div>';
         
-        html += '<div class="section">';
-        html += '<h2>Reported Symptoms</h2>';
-        html += '<ul class="symptom-list">';
-        if (symptoms.length > 0) {
-            symptoms.forEach(function(s) {
-                html += '<li class="symptom-yes">✓ ' + s + ' - Reported</li>';
-            });
-        }
-        if (noSymptoms.length > 0) {
-            noSymptoms.forEach(function(s) {
-                html += '<li class="symptom-no">✗ ' + s + ' - Not reported</li>';
-            });
-        }
-        if (symptoms.length === 0 && noSymptoms.length === 0) {
-            html += '<li>No symptoms recorded</li>';
-        }
-        html += '</ul>';
-        html += '</div>';
+        html += '<div class="section"><h2>Reported Symptoms</h2><ul class="symptom-list">';
+        symptoms.forEach(function(s) { html += '<li class="symptom-yes">✓ ' + s + ' - Reported</li>'; });
+        noSymptoms.forEach(function(s) { html += '<li class="symptom-no">✗ ' + s + ' - Not reported</li>'; });
+        if (symptoms.length === 0 && noSymptoms.length === 0) html += '<li>No symptoms recorded</li>';
+        html += '</ul></div>';
         
-        html += '<div class="footer">';
-        html += '<p>This report was generated by MediSight AI for informational purposes only.</p>';
-        html += '<p>For medical advice, please consult a qualified healthcare professional.</p>';
-        html += '</div>';
-        
-        html += '<script>window.onload = function() { window.print(); };<\/script>';
-        html += '</body></html>';
+        html += '<div class="footer"><p>This report was generated by MediSight AI for informational purposes only.</p>';
+        html += '<p>For medical advice, please consult a qualified healthcare professional.</p></div>';
+        html += '<script>window.onload = function() { window.print(); };<\/script></body></html>';
         
         var win = window.open('', '_blank');
         win.document.write(html);
@@ -718,7 +823,6 @@
         csv += 'Detected Emotion,"' + emotion + '"\n';
         csv += 'Report Date,' + new Date().toISOString() + '\n';
         csv += '\nSymptom,Status\n';
-        
         for (var k in symptomData) {
             csv += k.charAt(0).toUpperCase() + k.slice(1) + ',' + (symptomData[k] ? 'Yes' : 'No') + '\n';
         }
@@ -740,14 +844,14 @@
     if (exportPdfBtn) exportPdfBtn.addEventListener('click', exportPDF);
     if (exportCsvBtn) exportCsvBtn.addEventListener('click', exportCSV);
     
-    // Start conversation
+    // Start conversation with emotion context
     setTimeout(function() {
-        var emotionMsg = 'Hello! I have reviewed your profile.';
-        if (detectionData && detectionData.emotion && detectionData.emotion.emotion) {
-            emotionMsg += ' I can see you are feeling ' + detectionData.emotion.emotion + '.';
+        var greeting = 'Hello! I have reviewed your profile. ';
+        if (detectedEmotion) {
+            greeting += 'Based on my camera analysis, I can see you are feeling "' + detectedEmotion + '". ';
         }
-        emotionMsg += ' I am here to help you with your health assessment.';
-        addBotMessage(emotionMsg);
+        greeting += 'I am here to help you with your health assessment. Let me ask you a few questions about your symptoms.';
+        addBotMessage(greeting);
         setTimeout(function() {
             askQuestion();
         }, 1000);
