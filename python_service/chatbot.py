@@ -258,18 +258,35 @@ class HealthcareModel:
             for kw in keywords:
                 if kw in lower_msg:
                     # Check for negation
-                    neg_pattern = r'\b(no|not|never|don\'t|dont|tidak|gak|tanpa)\b.{0,10}' + kw
+                    neg_pattern = r'\b(no|not|never|don\'t|dont|tidak|gak|tanpa)\b.{0,15}' + kw
                     if re.search(neg_pattern, lower_msg):
-                        if profile.get(symptom) is None:
-                            profile[symptom] = "No"
+                        profile[symptom] = "No"  # Always update, not just when None
                     else:
                         profile[symptom] = "Yes"
                     break
         
-        if "high blood pressure" in lower_msg or "hipertensi" in lower_msg:
-            profile["Blood Pressure"] = "High"
-        if "high cholesterol" in lower_msg or "kolesterol tinggi" in lower_msg:
-            profile["Cholesterol Level"] = "High"
+        # Specific check for "difficulty breathing" phrase
+        if "difficulty breathing" in lower_msg:
+            neg_db = re.search(r'\b(no|not|never|don\'t|dont|tidak|gak)\b.{0,20}difficulty', lower_msg)
+            if neg_db:
+                profile["Difficulty Breathing"] = "No"
+            else:
+                profile["Difficulty Breathing"] = "Yes"
+        
+        # Handle Blood Pressure and Cholesterol with negation support
+        if "blood pressure" in lower_msg:
+            neg_bp = re.search(r'\b(no|not|never|don\'t|dont|tidak|gak)\b.{0,15}(high|blood pressure)', lower_msg)
+            if neg_bp:
+                profile["Blood Pressure"] = "Normal"
+            elif "high blood pressure" in lower_msg or "hipertensi" in lower_msg:
+                profile["Blood Pressure"] = "High"
+        
+        if "cholesterol" in lower_msg:
+            neg_chol = re.search(r'\b(no|not|never|don\'t|dont|tidak|gak)\b.{0,15}(high|cholesterol)', lower_msg)
+            if neg_chol:
+                profile["Cholesterol Level"] = "Normal"
+            elif "high cholesterol" in lower_msg or "kolesterol tinggi" in lower_msg:
+                profile["Cholesterol Level"] = "High"
         
         # --- 3. Determine next action ---
         main_symptoms = ["Fever", "Cough", "Fatigue", "Difficulty Breathing"]

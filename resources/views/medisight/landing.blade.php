@@ -3,9 +3,12 @@
 @section('title', 'MediSight AI – Health Insights from Your Camera')
 
 @section('nav-links')
-    <span id="navUserName" style="display: none; color: var(--muted); margin-right: 12px;"></span>
+    <span id="navUserInfo" style="display: none;">
+        <a href="{{ url('/dashboard') }}" id="navUserLink" style="color: var(--accent);">Dashboard</a>
+        <span style="color: var(--muted); margin: 0 8px;">|</span>
+        <a href="#" id="navLogout" style="color: var(--muted);" onclick="logout()">Logout</a>
+    </span>
     <a href="{{ url('/login') }}" class="nav-cta" id="navSignIn">Sign In</a>
-    <a href="#" id="navLogout" style="display: none; color: var(--muted);" onclick="logout()">Logout</a>
 @endsection
 
 @section('styles')
@@ -106,35 +109,45 @@
 </section>
 @endsection
 
+@section('scripts')
 <script>
 // Check if already logged in
 var token = localStorage.getItem('medisight_token');
 var userName = localStorage.getItem('medisight_user_name');
+var userJson = localStorage.getItem('medisight_user');
 
 if (token) {
-    // Already logged in, update navbar
+    // Already logged in, update main button
     var btn = document.getElementById('getStartedBtn');
     if (btn) {
         btn.href = '{{ url("/dashboard") }}';
         btn.textContent = 'Go to Dashboard';
     }
     
-    // Show user name in navbar
-    var navUser = document.getElementById('navUserName');
+    // Show user info in navbar
+    var navUserInfo = document.getElementById('navUserInfo');
     var navSignIn = document.getElementById('navSignIn');
-    var navLogout = document.getElementById('navLogout');
     
-    if (navUser && userName) {
-        navUser.textContent = userName;
-        navUser.style.display = 'inline';
-    }
+    if (navUserInfo) navUserInfo.style.display = 'inline';
     if (navSignIn) navSignIn.style.display = 'none';
-    if (navLogout) navLogout.style.display = 'inline';
+    
+    // Try to get email from user object
+    if (userJson) {
+        try {
+            var user = JSON.parse(userJson);
+            var navUserLink = document.getElementById('navUserLink');
+            if (navUserLink && user.email) {
+                navUserLink.textContent = 'Dashboard (' + user.email + ')';
+            }
+        } catch(e) {}
+    }
 }
 
 function logout() {
     localStorage.removeItem('medisight_token');
     localStorage.removeItem('medisight_user_name');
+    localStorage.removeItem('medisight_user');
     window.location.reload();
 }
 </script>
+@endsection

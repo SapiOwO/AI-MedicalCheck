@@ -249,6 +249,109 @@
         color: #1e293b !important;
     }
     
+    /* Symptom Picker Styles */
+    .symptom-add-btn {
+        background: rgba(79, 70, 229, 0.2);
+        border: 1px solid rgba(79, 70, 229, 0.5);
+        color: #818cf8;
+        border-radius: 50%;
+        width: 24px;
+        height: 24px;
+        cursor: pointer;
+        font-size: 16px;
+        line-height: 1;
+    }
+    
+    .symptom-picker {
+        margin-top: 8px;
+        background: rgba(15, 23, 42, 0.95);
+        border: 1px solid rgba(55, 65, 81, 0.8);
+        border-radius: 8px;
+        padding: 8px;
+    }
+    
+    .symptom-select {
+        width: 100%;
+        padding: 8px;
+        border-radius: 6px;
+        border: 1px solid rgba(55, 65, 81, 0.9);
+        background: rgba(15, 23, 42, 0.95);
+        color: var(--text);
+        font-size: 13px;
+        margin-bottom: 8px;
+    }
+    
+    .symptom-list {
+        background: rgba(15, 23, 42, 0.5);
+        border: 1px solid rgba(55, 65, 81, 0.5);
+        border-radius: 12px;
+        padding: 12px;
+        min-height: 60px;
+        font-size: 14px;
+        color: #cbd5e1;
+        margin-top: 8px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        align-items: flex-start;
+    }
+    
+    .symptom-tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: rgba(79, 70, 229, 0.2);
+        color: #818cf8;
+        padding: 4px 10px;
+        border-radius: 99px;
+        font-size: 12px;
+    }
+    
+    .symptom-tag .remove-btn {
+        background: none;
+        border: none;
+        color: #818cf8;
+        cursor: pointer;
+        font-size: 14px;
+        padding: 0;
+        line-height: 1;
+        opacity: 0.7;
+    }
+    
+    .symptom-tag .remove-btn:hover {
+        opacity: 1;
+        color: #ef4444;
+    }
+    
+    /* Light Mode for Symptom UI */
+    body.light-mode .symptom-add-btn {
+        background: rgba(79, 70, 229, 0.15);
+        border-color: rgba(79, 70, 229, 0.4);
+        color: #4f46e5;
+    }
+    
+    body.light-mode .symptom-picker {
+        background: #ffffff;
+        border-color: #e2e8f0;
+    }
+    
+    body.light-mode .symptom-select {
+        background: #f8fafc;
+        border-color: #cbd5e1;
+        color: #1e293b;
+    }
+    
+    body.light-mode .symptom-list {
+        background: #f8fafc;
+        border-color: #e2e8f0;
+        color: #475569;
+    }
+    
+    body.light-mode .symptom-tag {
+        background: rgba(79, 70, 229, 0.15);
+        color: #4f46e5;
+    }
+    
     @media (max-width: 900px) {
         .profile-layout {
             grid-template-columns: 1fr;
@@ -325,18 +428,30 @@
                     </button>
                 </div>
 
-                <!-- Symptom List (Read Only) -->
+                <!-- Symptom List -->
                 <div class="form-group" style="margin-top: 20px;">
-                    <label>Identified Symptoms</label>
-                    <div id="symptomList" style="
-                        background: rgba(15, 23, 42, 0.5);
-                        border: 1px solid rgba(55, 65, 81, 0.5);
-                        border-radius: 12px;
-                        padding: 12px;
-                        min-height: 80px;
-                        font-size: 14px;
-                        color: #cbd5e1;
-                    ">
+                    <label style="display: flex; align-items: center; justify-content: space-between;">
+                        Identified Symptoms
+                        <button type="button" id="addSymptomBtn" onclick="toggleSymptomPicker()" class="symptom-add-btn">+</button>
+                    </label>
+                    
+                    <!-- Symptom Picker Dropdown -->
+                    <div id="symptomPicker" class="symptom-picker" style="display: none;">
+                        <select id="symptomSelect" class="symptom-select">
+                            <option value="">Select a symptom...</option>
+                            <option value="Fever" data-msg="I have a fever">Fever</option>
+                            <option value="Cough" data-msg="I have a cough">Cough</option>
+                            <option value="Fatigue" data-msg="I feel tired and fatigued">Fatigue</option>
+                            <option value="Difficulty Breathing" data-msg="I have difficulty breathing">Difficulty Breathing</option>
+                            <option value="Blood Pressure" data-msg="I have high blood pressure">High Blood Pressure</option>
+                            <option value="Cholesterol Level" data-msg="I have high cholesterol">High Cholesterol</option>
+                        </select>
+                        <button type="button" onclick="addSelectedSymptom()" class="btn-primary" style="width: 100%; padding: 8px; font-size: 13px;">
+                            Add to Chat
+                        </button>
+                    </div>
+                    
+                    <div id="symptomList" class="symptom-list">
                         <em style="opacity: 0.5;">No symptoms identified yet...</em>
                     </div>
                 </div>
@@ -550,21 +665,118 @@
         
         var symptoms = [];
         if (chatbotProfile) {
-            for (var k in chatbotProfile) {
-                if (chatbotProfile[k] === 'Yes' || chatbotProfile[k] === 'High') {
+            // Check main symptoms
+            ['Fever', 'Cough', 'Fatigue', 'Difficulty Breathing'].forEach(function(k) {
+                if (chatbotProfile[k] === 'Yes') {
                     symptoms.push(k);
                 }
+            });
+            // Check vitals
+            if (chatbotProfile['Blood Pressure'] === 'High') {
+                symptoms.push('Blood Pressure');
+            }
+            if (chatbotProfile['Cholesterol Level'] === 'High') {
+                symptoms.push('Cholesterol Level');
             }
         }
         
         if (symptoms.length === 0) {
             container.innerHTML = '<em style="opacity: 0.5;">No symptoms identified yet...</em>';
         } else {
-            container.innerHTML = symptoms.map(s => 
-                '<span style="display:inline-block; background:rgba(79, 70, 229, 0.2); color:#818cf8; padding:4px 10px; border-radius:99px; font-size:12px; margin:2px;">' + s + '</span>'
-            ).join(' ');
+            container.innerHTML = symptoms.map(function(s) {
+                return '<span class="symptom-tag">' + 
+                    s + 
+                    '<button type="button" class="remove-btn" onclick="removeSymptom(\'' + s + '\')">&times;</button>' +
+                '</span>';
+            }).join('');
         }
+        
+        // Update dropdown to hide already-selected symptoms
+        updateSymptomDropdown(symptoms);
     }
+    
+    function updateSymptomDropdown(selectedSymptoms) {
+        var select = document.getElementById('symptomSelect');
+        if (!select) return;
+        
+        var options = select.querySelectorAll('option');
+        options.forEach(function(opt) {
+            if (opt.value && selectedSymptoms.indexOf(opt.value) !== -1) {
+                opt.style.display = 'none';
+            } else {
+                opt.style.display = '';
+            }
+        });
+    }
+    
+    // Symptom Picker Functions
+    window.toggleSymptomPicker = function() {
+        var picker = document.getElementById('symptomPicker');
+        if (picker) {
+            picker.style.display = picker.style.display === 'none' ? 'block' : 'none';
+            
+            // Update dropdown to hide already-selected symptoms
+            var symptoms = [];
+            if (chatbotProfile) {
+                ['Fever', 'Cough', 'Fatigue', 'Difficulty Breathing'].forEach(function(k) {
+                    if (chatbotProfile[k] === 'Yes') symptoms.push(k);
+                });
+                if (chatbotProfile['Blood Pressure'] === 'High') symptoms.push('Blood Pressure');
+                if (chatbotProfile['Cholesterol Level'] === 'High') symptoms.push('Cholesterol Level');
+            }
+            updateSymptomDropdown(symptoms);
+        }
+    };
+    
+    window.addSelectedSymptom = function() {
+        var select = document.getElementById('symptomSelect');
+        var selectedOption = select.options[select.selectedIndex];
+        
+        if (!select || !select.value) {
+            alert('Please select a symptom first.');
+            return;
+        }
+        
+        var symptomKey = select.value; // e.g., "Fever", "Blood Pressure"
+        var chatMsg = selectedOption.getAttribute('data-msg'); // e.g., "I have a fever"
+        
+        // Hide picker
+        document.getElementById('symptomPicker').style.display = 'none';
+        select.value = '';
+        
+        // Send to chat
+        sendMessage(chatMsg);
+    };
+    
+    window.removeSymptom = function(symptomKey) {
+        if (!chatbotProfile) return;
+        
+        // Determine the chat message for removal
+        var removeMessages = {
+            'Fever': "I don't have a fever",
+            'Cough': "I don't have a cough",
+            'Fatigue': "I don't feel fatigued",
+            'Difficulty Breathing': "I don't have difficulty breathing",
+            'Blood Pressure': "I don't have high blood pressure",
+            'Cholesterol Level': "I don't have high cholesterol"
+        };
+        
+        // Clear from profile
+        if (symptomKey === 'Blood Pressure') {
+            chatbotProfile['Blood Pressure'] = 'Normal';
+        } else if (symptomKey === 'Cholesterol Level') {
+            chatbotProfile['Cholesterol Level'] = 'Normal';
+        } else {
+            chatbotProfile[symptomKey] = 'No';
+        }
+        
+        // Update UI
+        updateSymptomViewer();
+        
+        // Send removal message to chat
+        var msg = removeMessages[symptomKey] || ("I don't have " + symptomKey.toLowerCase());
+        sendMessage(msg);
+    };
     
     function getGreeting() {
         // Don't start automatically anymore
@@ -851,6 +1063,8 @@
             if (chatbotProfile.Cough === 'Yes') symptoms.push('Cough');
             if (chatbotProfile.Fatigue === 'Yes') symptoms.push('Fatigue');
             if (chatbotProfile['Difficulty Breathing'] === 'Yes') symptoms.push('Difficulty Breathing');
+            if (chatbotProfile['Blood Pressure'] === 'High') symptoms.push('High Blood Pressure');
+            if (chatbotProfile['Cholesterol Level'] === 'High') symptoms.push('High Cholesterol');
         }
         
         var html = '<!DOCTYPE html><html><head><title>MediSight AI Report</title>';
@@ -902,6 +1116,8 @@
             csv += 'Cough,' + (chatbotProfile.Cough === 'Yes' ? 'Yes' : 'No') + '\n';
             csv += 'Fatigue,' + (chatbotProfile.Fatigue === 'Yes' ? 'Yes' : 'No') + '\n';
             csv += 'Difficulty Breathing,' + (chatbotProfile['Difficulty Breathing'] === 'Yes' ? 'Yes' : 'No') + '\n';
+            csv += 'Blood Pressure,' + (chatbotProfile['Blood Pressure'] === 'High' ? 'High' : 'Normal') + '\n';
+            csv += 'Cholesterol Level,' + (chatbotProfile['Cholesterol Level'] === 'High' ? 'High' : 'Normal') + '\n';
         }
         
         var blob = new Blob([csv], { type: 'text/csv' });
