@@ -3,7 +3,9 @@
 @section('title', 'MediSight AI – Health Insights from Your Camera')
 
 @section('nav-links')
-    <a href="{{ url('/login') }}" class="nav-cta">Sign In</a>
+    <span id="navUserName" style="display: none; color: var(--muted); margin-right: 12px;"></span>
+    <a href="{{ url('/login') }}" class="nav-cta" id="navSignIn">Sign In</a>
+    <a href="#" id="navLogout" style="display: none; color: var(--muted);" onclick="logout()">Logout</a>
 @endsection
 
 @section('styles')
@@ -104,17 +106,35 @@
 </section>
 @endsection
 
-@section('scripts')
 <script>
 // Check if already logged in
 var token = localStorage.getItem('medisight_token');
+var userName = localStorage.getItem('medisight_user_name');
+
 if (token) {
-    // Already logged in, update button to go to dashboard
+    // Already logged in, update navbar
     var btn = document.getElementById('getStartedBtn');
     if (btn) {
         btn.href = '{{ url("/dashboard") }}';
         btn.textContent = 'Go to Dashboard';
     }
+    
+    // Show user name in navbar
+    var navUser = document.getElementById('navUserName');
+    var navSignIn = document.getElementById('navSignIn');
+    var navLogout = document.getElementById('navLogout');
+    
+    if (navUser && userName) {
+        navUser.textContent = userName;
+        navUser.style.display = 'inline';
+    }
+    if (navSignIn) navSignIn.style.display = 'none';
+    if (navLogout) navLogout.style.display = 'inline';
+}
+
+function logout() {
+    localStorage.removeItem('medisight_token');
+    localStorage.removeItem('medisight_user_name');
+    window.location.reload();
 }
 </script>
-@endsection

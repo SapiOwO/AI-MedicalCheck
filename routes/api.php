@@ -37,6 +37,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/chat/sessions', [ChatSessionController::class, 'index']);
     Route::get('/chat/session/{id}', [ChatSessionController::class, 'show']);
     Route::post('/chat/session/{id}/end', [ChatSessionController::class, 'end']);
+    Route::delete('/chat/session/{id}', [ChatSessionController::class, 'destroy']);
     
     // Session Start and Update (inside auth so user_id is captured)
     Route::post('/chat/session/start', [ChatSessionController::class, 'start']);

@@ -1,25 +1,28 @@
 from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel
+from typing import Optional
 from model import EmotionDetector
+from chatbot import HealthcareModel
 from pathlib import Path
 import os
 
 # Initialize FastAPI app
 app = FastAPI(
-    title="Medical Check - Emotion Detection API",
-    description="AI-powered emotion detection from facial images",
-    version="1.0.0"
+    title="MediSight AI - Detection & Chatbot API",
+    description="AI-powered emotion detection and healthcare chatbot",
+    version="2.0.0"
 )
 
 # CORS configuration - allow Laravel to access this API
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:8000",  # Laravel default
+        "http://localhost:8000",
         "http://127.0.0.1:8000",
         "http://localhost",
-        "*"  # Allow all for development (sesuaikan di production)
+        "*"
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -32,36 +35,51 @@ MODEL_PATH = MODEL_DIR / "emotion_best.pth"
 
 # Global variable untuk model
 emotion_detector = None
+healthcare_model = None
+
+
+# Pydantic models for chatbot
+class ChatRequest(BaseModel):
+    message: str
+    profile: dict
+    context: Optional[str] = ""
+
+class GreetingRequest(BaseModel):
+    profile: Optional[dict] = None
+
 
 @app.on_event("startup")
 async def startup_event():
     """Load model saat aplikasi start"""
-    global emotion_detector
+    global emotion_detector, healthcare_model
     
     try:
         if not MODEL_PATH.exists():
-            print(f"⚠️  Model file not found: {MODEL_PATH}")
-            print(f"📁 Please place your .pth file in: {MODEL_DIR}")
-            print(f"   Expected filename: emotion_best.pth")
-            # Don't raise error, allow API to start
+            print(f"WARNING: Model file not found: {MODEL_PATH}")
+            print(f"Please place your .pth file in: {MODEL_DIR}")
         else:
             emotion_detector = EmotionDetector(str(MODEL_PATH))
-            print(f"✅ Emotion detection model loaded successfully!")
+            print(f"Emotion detection model loaded successfully!")
+        
+        # Initialize Healthcare Expert System
+        healthcare_model = HealthcareModel()
+        print(f"Healthcare Expert System loaded successfully!")
             
     except Exception as e:
-        print(f"❌ Error during startup: {str(e)}")
-        # Don't crash the app, just log the error
+        print(f"ERROR during startup: {str(e)}")
 
 
 @app.get("/")
 async def root():
     """Root endpoint"""
     return {
-        "message": "Medical Check - Emotion Detection API",
+        "message": "MediSight AI - Detection & Chatbot API",
         "status": "running",
         "endpoints": {
             "health": "/health",
-            "predict": "/predict (POST with image file)"
+            "predict": "/predict (POST with image file)",
+            "chatbot_greeting": "/chatbot/greeting (POST)",
+            "chatbot_chat": "/chatbot/chat (POST)"
         }
     }
 
@@ -70,11 +88,13 @@ async def root():
 async def health_check():
     """Health check endpoint"""
     model_status = "loaded" if emotion_detector is not None else "not_loaded"
+    chatbot_status = "loaded" if healthcare_model is not None else "not_loaded"
     model_path_exists = MODEL_PATH.exists()
     
     return {
         "status": "healthy",
         "model_status": model_status,
+        "chatbot_status": chatbot_status,
         "model_path": str(MODEL_PATH),
         "model_path_exists": model_path_exists,
         "expected_location": str(MODEL_DIR)
@@ -83,16 +103,7 @@ async def health_check():
 
 @app.post("/predict")
 async def predict_emotion(file: UploadFile = File(...)):
-    """
-    Predict emotion from uploaded image
-    
-    Args:
-        file: Image file (jpg, png, etc)
-    
-    Returns:
-        JSON with emotion prediction and confidence
-    """
-    # Check if model is loaded
+    """Predict emotion from uploaded image"""
     if emotion_detector is None:
         raise HTTPException(
             status_code=503,
@@ -102,7 +113,6 @@ async def predict_emotion(file: UploadFile = File(...)):
             }
         )
     
-    # Validate file type
     if not file.content_type.startswith('image/'):
         raise HTTPException(
             status_code=400,
@@ -110,26 +120,17 @@ async def predict_emotion(file: UploadFile = File(...)):
         )
     
     try:
-        # Read image bytes
         image_bytes = await file.read()
         
         print("=" * 60)
-        print(f"📥 Received image: {len(image_bytes)} bytes")
-        print(f"📄 Content type: {file.content_type}")
+        print(f"Received image: {len(image_bytes)} bytes")
         
-        # Predict emotion
         result = emotion_detector.predict_emotion(image_bytes)
         
-        print(f"🔍 Prediction result: {result}")
-        
         if not result['success']:
-            print(f"❌ Prediction failed: {result.get('error')}")
-            raise HTTPException(
-                status_code=400,
-                detail=result.get('error', 'Unknown error')
-            )
+            raise HTTPException(status_code=400, detail=result.get('error', 'Unknown error'))
         
-        print(f"✅ Success! Emotion: {result['emotion']}, Confidence: {result['confidence']:.3f}")
+        print(f"Emotion: {result['emotion']}, Confidence: {result['confidence']:.3f}")
         print("=" * 60)
         
         return JSONResponse(content=result)
@@ -137,13 +138,67 @@ async def predict_emotion(file: UploadFile = File(...)):
     except HTTPException:
         raise
     except Exception as e:
-        print(f"❌ Unexpected error: {str(e)}")
+        print(f"ERROR: {str(e)}")
         import traceback
         traceback.print_exc()
-        raise HTTPException(
-            status_code=500,
-            detail=f"Internal server error: {str(e)}"
+        raise HTTPException(status_code=500, detail=f"Internal error: {str(e)}")
+
+
+# ==========================================
+# CHATBOT ENDPOINTS
+# ==========================================
+
+@app.post("/chatbot/greeting")
+async def chatbot_greeting(request: GreetingRequest):
+    """Get initial greeting from chatbot with emotion context"""
+    if healthcare_model is None:
+        raise HTTPException(status_code=503, detail="Chatbot not loaded")
+    
+    try:
+        profile = request.profile or healthcare_model.generate_random_profile()
+        greeting = healthcare_model.get_initial_greeting(profile)
+        
+        return {
+            "success": True,
+            "greeting": greeting,
+            "profile": profile
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/chatbot/chat")
+async def chatbot_chat(request: ChatRequest):
+    """Process chat message and get response using Expert System"""
+    if healthcare_model is None:
+        raise HTTPException(status_code=503, detail="Chatbot not loaded")
+    
+    try:
+        print("=" * 60)
+        print(f"Message: {request.message}")
+        print(f"Profile: {request.profile}")
+        print(f"Context: {request.context[:50] if request.context else 'None'}...")
+        
+        response_text, updated_profile = healthcare_model.recommend(
+            request.profile, 
+            request.message, 
+            request.context
         )
+        
+        print(f"Response: {response_text[:100]}...")
+        print(f"Updated Profile: {updated_profile}")
+        print("=" * 60)
+        
+        return {
+            "success": True,
+            "response": response_text,
+            "profile": updated_profile
+        }
+    except Exception as e:
+        print(f"Chatbot error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/test")
@@ -158,15 +213,13 @@ async def test_endpoint():
 if __name__ == "__main__":
     import uvicorn
     
-    # Run server
-    print("🚀 Starting Medical Check API...")
-    print(f"📁 Model directory: {MODEL_DIR}")
-    print(f"📄 Expected model: {MODEL_PATH}")
+    print("Starting MediSight AI API...")
+    print(f"Model directory: {MODEL_DIR}")
     
     uvicorn.run(
         "api:app",
         host="0.0.0.0",
-        port=8001,  # Port 8001 to avoid conflict with Laravel (8000)
-        reload=True,  # Auto-reload during development
+        port=8001,
+        reload=True,
         log_level="info"
     )

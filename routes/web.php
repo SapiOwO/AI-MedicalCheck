@@ -28,9 +28,9 @@ Route::get('/dashboard', function () {
     return view('medisight.dashboard');
 })->name('dashboard');
 
-// Chat Page (main AI chat with camera detection)
+// Chat Page - Redirect to new session flow
 Route::get('/chat', function () {
-    return view('medisight.chat');
+    return redirect('/session/camera');
 })->name('chat');
 
 // Password Reset Page

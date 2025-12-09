@@ -103,6 +103,7 @@ document.getElementById('loginForm').addEventListener('submit', async function(e
             // Store token in localStorage
             localStorage.setItem('medisight_token', data.data.token);
             localStorage.setItem('medisight_user', JSON.stringify(data.data.user));
+            localStorage.setItem('medisight_user_name', data.data.user.name); // For navbar
             
             // Check if there's pending guest session to save
             var pendingData = localStorage.getItem('pending_session_data');

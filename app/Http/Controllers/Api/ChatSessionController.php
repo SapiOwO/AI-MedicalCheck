@@ -136,9 +136,15 @@ class ChatSessionController extends Controller
                     'emotion_confidence' => $session->emotion_confidence,
                     'fatigue_confidence' => $session->fatigue_confidence,
                     'pain_confidence' => $session->pain_confidence,
+                    'age' => $session->age,
+                    'gender' => $session->gender,
+                    'symptom_data' => $session->symptom_data,
+                    'ai_detection_data' => $session->ai_detection_data,
+                    'current_step' => $session->current_step,
                     'status' => $session->status,
-                    'started_at' => $session->started_at,
+                    'started_at' => $session->started_at ?? $session->created_at,
                     'ended_at' => $session->ended_at,
+                    'created_at' => $session->created_at,
                     'messages' => $session->messages->map(function ($message) {
                         return [
                             'id' => $message->id,
@@ -273,5 +279,30 @@ class ChatSessionController extends Controller
             ],
         ]);
     }
-}
 
+    /**
+     * Delete a chat session
+     */
+    public function destroy(Request $request, $id)
+    {
+        $session = ChatSession::where('user_id', auth()->id())->find($id);
+
+        if (!$session) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Session not found or access denied',
+            ], 404);
+        }
+
+        // Delete associated messages first
+        $session->messages()->delete();
+        
+        // Delete the session
+        $session->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Session deleted successfully',
+        ]);
+    }
+}

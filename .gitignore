@@ -63,6 +63,7 @@ __pycache__/
 *.tmp
 *.temp
 *.cache
+*.pkl
 
 # ====================================
 # Frontend Source (already converted to Blade)

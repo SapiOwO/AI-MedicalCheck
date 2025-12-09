@@ -152,12 +152,12 @@ class EmotionDetector:
             self.model.to(self.device)
             self.model.eval()  # CRITICAL: Set to eval mode
             
-            print(f"✅ Model loaded successfully from {self.model_path}")
+            print(f"Model loaded successfully from {self.model_path}")
             print(f"   Device: {self.device}")
             print(f"   Emotions: {self.emotions}")
             
         except Exception as e:
-            print(f"❌ Error loading model: {str(e)}")
+            print(f"ERROR loading model: {str(e)}")
             import traceback
             traceback.print_exc()
             raise
@@ -243,7 +243,7 @@ class EmotionDetector:
             
             # If no face detected, use center crop as fallback
             if face_roi is None:
-                print("⚠️  No face detected, using center crop")
+                print("WARNING: No face detected, using center crop")
                 h, w = image.shape[:2]
                 
                 # Take center 60% of image
@@ -272,7 +272,7 @@ class EmotionDetector:
                 emotion = self.emotions[emotion_idx]
                 conf_score = confidence.item()
             
-            print(f"✅ Prediction: {emotion} ({conf_score*100:.1f}%)")
+            print(f"Prediction: {emotion} ({conf_score*100:.1f}%)")
             
             return {
                 'success': True,
@@ -293,7 +293,7 @@ class EmotionDetector:
         except Exception as e:
             import traceback
             error_trace = traceback.format_exc()
-            print(f"❌ Prediction error: {str(e)}")
+            print(f"Prediction error: {str(e)}")
             print(error_trace)
             return {
                 'success': False,
