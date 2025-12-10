@@ -432,7 +432,7 @@
                 <div class="form-group" style="margin-top: 20px;">
                     <label style="display: flex; align-items: center; justify-content: space-between;">
                         Identified Symptoms
-                        <button type="button" id="addSymptomBtn" onclick="toggleSymptomPicker()" class="symptom-add-btn">+</button>
+                        <button type="button" id="addSymptomBtn" onclick="toggleSymptomPicker()" class="symptom-add-btn" style="display: none;">+</button>
                     </label>
                     
                     <!-- Symptom Picker Dropdown -->
@@ -548,7 +548,13 @@
                 return;
             }
             
-            // Create new session
+            // For guests, don't create session now - will be created on finalize/login
+            if (isGuest) {
+                resolve(null);
+                return;
+            }
+            
+            // Create new session for registered users
             fetch(API_URL + '/chat/session/start', {
                 method: 'POST',
                 headers: getHeaders(),
@@ -794,7 +800,8 @@
             container.innerHTML = '<em style="opacity: 0.5;">No symptoms identified yet...</em>';
         } else {
             container.innerHTML = symptoms.map(function(s) {
-                var removeBtn = isReadOnly ? '' : '<button type="button" class="remove-btn" onclick="removeSymptom(\'' + s + '\')">&times;</button>';
+                // Only show remove button if diagnosis is given and not in read-only mode
+                var removeBtn = (isReadOnly || !diagnosisGiven) ? '' : '<button type="button" class="remove-btn" onclick="removeSymptom(\'' + s + '\')">&times;</button>';
                 return '<span class="symptom-tag">' + s + removeBtn + '</span>';
             }).join('');
         }
@@ -819,6 +826,12 @@
     
     // Symptom Picker Functions
     window.toggleSymptomPicker = function() {
+        // Only allow if diagnosis has been given
+        if (!diagnosisGiven) {
+            alert('Please complete the AI consultation first to modify symptoms.');
+            return;
+        }
+        
         var picker = document.getElementById('symptomPicker');
         if (picker) {
             picker.style.display = picker.style.display === 'none' ? 'block' : 'none';
@@ -858,6 +871,7 @@
     
     window.removeSymptom = function(symptomKey) {
         if (!chatbotProfile) return;
+        if (!diagnosisGiven) return; // Prevent removal before diagnosis
         
         // Determine the chat message for removal
         var removeMessages = {
@@ -905,9 +919,7 @@
         chatbotProfile.Age = parseInt(ageInput.value);
         chatbotProfile.Gender = genderInput.value;
         
-        // Disable inputs
-        ageInput.disabled = true;
-        genderInput.disabled = true;
+        // Hide Start button
         document.getElementById('startChatBtn').style.display = 'none';
         
         // Show typing
@@ -1022,6 +1034,9 @@
                 
                 if (data.response.includes('Diagnosis') || data.response.includes('Match')) {
                     diagnosisGiven = true;
+                    // Show symptom add button after diagnosis
+                    var addSymptomBtn = document.getElementById('addSymptomBtn');
+                    if (addSymptomBtn) addSymptomBtn.style.display = 'inline-block';
                 }
             } else {
                 throw new Error('API error');
@@ -1038,6 +1053,14 @@
     // Guest Handling - only show login prompt, don't interfere with finalize
     // The actual finalize listener is at the bottom of the script
 
+    // Clear all guest session data (only called on explicit End Session)
+    function clearGuestData() {
+        localStorage.removeItem('current_session_id');
+        localStorage.removeItem('current_session_token');
+        localStorage.removeItem('detection_data');
+        localStorage.removeItem('pending_session_data');
+    }
+
     if (isGuest && document.getElementById('finalizeSection')) {
         var endBtn = document.createElement('button');
         endBtn.className = 'btn-secondary';
@@ -1046,9 +1069,8 @@
         endBtn.style.marginLeft = '12px';
         endBtn.onclick = function() {
             if (confirm('Are you sure? All session data will be discarded.')) {
-                localStorage.removeItem('medisight_token');
-                localStorage.removeItem('detection_data'); // Clear photo data too
-                window.location.href = '{{ url("/dashboard") }}';
+                clearGuestData();
+                window.location.href = '{{ url("/") }}';
             }
         };
         document.getElementById('finalizeSection').appendChild(endBtn);
@@ -1071,6 +1093,12 @@
         
         if (!age || !gender) {
             alert('Please fill in Age and Gender before finalizing.');
+            return;
+        }
+        
+        // Require diagnosis to be given first (user must complete AI chat questions)
+        if (!diagnosisGiven) {
+            alert('Please complete the AI consultation first. Answer the 4 symptom questions to get a diagnosis before finalizing.');
             return;
         }
         

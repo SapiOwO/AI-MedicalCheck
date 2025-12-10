@@ -343,6 +343,7 @@
     var capturedBlob = null;
     var cameraOn = false;
     var detectionData = null;
+    var isGuest = !token;
 
     // Toggle camera on/off
     function toggleCamera() {
