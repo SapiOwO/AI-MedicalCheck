@@ -232,7 +232,7 @@
     </h1>
     <p class="hero-subtitle" style="margin-bottom: 24px;">
         Position your face in the frame and click the capture button.
-        Our AI will analyze your expression to detect emotion, fatigue, and pain levels.
+        Our AI will analyze your expression to detect your emotional state.
     </p>
 
     <!-- Camera View -->
@@ -508,34 +508,6 @@
             html += '<div style="display: flex; align-items: center;">';
             html += '<span class="detection-value ' + emotionClass + '">' + emotion + ' (' + emotionConf.toFixed(1) + '%)</span>';
             html += '<div class="confidence-bar"><div class="confidence-fill" style="width: ' + emotionConf + '%"></div></div>';
-            html += '</div></div>';
-        }
-        
-        // Fatigue
-        if (detectionData.fatigue) {
-            var fatigue = detectionData.fatigue.fatigue || 'Unknown';
-            var fatigueConf = (detectionData.fatigue.confidence || 0) * 100;
-            var fatigueClass = fatigue === 'alert' ? 'success' : 'warning';
-            
-            html += '<div class="detection-item">';
-            html += '<span class="detection-label">Fatigue Level</span>';
-            html += '<div style="display: flex; align-items: center;">';
-            html += '<span class="detection-value ' + fatigueClass + '">' + fatigue + ' (' + fatigueConf.toFixed(1) + '%)</span>';
-            html += '<div class="confidence-bar"><div class="confidence-fill" style="width: ' + fatigueConf + '%"></div></div>';
-            html += '</div></div>';
-        }
-        
-        // Pain
-        if (detectionData.pain) {
-            var pain = detectionData.pain.pain || 'Unknown';
-            var painConf = (detectionData.pain.confidence || 0) * 100;
-            var painClass = pain === 'no' ? 'success' : 'warning';
-            
-            html += '<div class="detection-item">';
-            html += '<span class="detection-label">Pain Indicators</span>';
-            html += '<div style="display: flex; align-items: center;">';
-            html += '<span class="detection-value ' + painClass + '">' + pain + ' (' + painConf.toFixed(1) + '%)</span>';
-            html += '<div class="confidence-bar"><div class="confidence-fill" style="width: ' + painConf + '%"></div></div>';
             html += '</div></div>';
         }
         

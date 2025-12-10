@@ -3,7 +3,7 @@
 @section('title', 'MediSight AI – Health Assessment')
 
 @section('nav-links')
-    <a href="{{ url('/session/camera') }}">Back to Camera</a>
+    <a href="{{ url('/session/camera') }}" id="backToCameraLink">Back to Camera</a>
     <a href="{{ url('/dashboard') }}">Dashboard</a>
 @endsection
 
@@ -687,6 +687,10 @@
         document.getElementById('pageSubtitle').textContent = 'This session has been archived and is now read-only.';
         document.getElementById('statusText').textContent = 'Archived';
         readonlyNotice.style.display = 'block';
+        
+        // Hide "Back to Camera" link in navbar for archived sessions
+        var backToCameraLink = document.getElementById('backToCameraLink');
+        if (backToCameraLink) backToCameraLink.style.display = 'none';
         
         // Disable all inputs
         document.getElementById('age').disabled = true;

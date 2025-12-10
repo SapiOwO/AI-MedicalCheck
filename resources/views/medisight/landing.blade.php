@@ -99,12 +99,12 @@
     </h1>
     
     <p class="landing-subtitle">
-        AI-powered emotion, fatigue, and symptom detection.
+        AI-powered emotion and symptom detection.
     </p>
     
     <div class="landing-actions">
         <a href="{{ url('/login') }}" class="btn-primary" id="getStartedBtn">Get Started</a>
-        <a href="{{ url('/session/camera') }}" class="btn-secondary">Try as Guest</a>
+        <a href="{{ url('/session/camera') }}" class="btn-secondary" id="tryAsGuestBtn">Try as Guest</a>
     </div>
 </section>
 @endsection
@@ -123,6 +123,10 @@ if (token) {
         btn.href = '{{ url("/dashboard") }}';
         btn.textContent = 'Go to Dashboard';
     }
+    
+    // Hide "Try as Guest" button since user is already logged in
+    var tryAsGuestBtn = document.getElementById('tryAsGuestBtn');
+    if (tryAsGuestBtn) tryAsGuestBtn.style.display = 'none';
     
     // Show user info in navbar
     var navUserInfo = document.getElementById('navUserInfo');
