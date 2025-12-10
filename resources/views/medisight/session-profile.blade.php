@@ -528,6 +528,77 @@
     var emotionText = document.getElementById('emotionText');
     var emotionBadge = document.getElementById('emotionBadge');
     
+    // Helper: Get auth headers
+    function getHeaders() {
+        var headers = {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+        };
+        if (token) {
+            headers['Authorization'] = 'Bearer ' + token;
+        }
+        return headers;
+    }
+    
+    // Helper: Ensure session exists in database
+    function ensureSession() {
+        return new Promise(function(resolve, reject) {
+            if (sessionId) {
+                resolve(sessionId);
+                return;
+            }
+            
+            // Create new session
+            fetch(API_URL + '/chat/session/start', {
+                method: 'POST',
+                headers: getHeaders(),
+                body: JSON.stringify({
+                    emotion: detectionData.emotion ? detectionData.emotion.emotion : null,
+                    emotion_confidence: detectionData.emotion ? detectionData.emotion.confidence : null,
+                    current_step: 'profile'
+                })
+            })
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                if (data.success) {
+                    sessionId = data.data.session.id;
+                    sessionToken = data.data.session.session_token;
+                    localStorage.setItem('current_session_id', sessionId);
+                    localStorage.setItem('current_session_token', sessionToken);
+                    resolve(sessionId);
+                } else {
+                    reject(new Error('Failed to create session'));
+                }
+            })
+            .catch(reject);
+        });
+    }
+    
+    // Helper: Save message to database
+    function saveMessageToDB(sender, message) {
+        if (!sessionId || isGuest) return Promise.resolve(); // Skip for guests without session
+        
+        return fetch(API_URL + '/chat/message/store', {
+            method: 'POST',
+            headers: getHeaders(),
+            body: JSON.stringify({
+                session_id: parseInt(sessionId),
+                sender: sender,
+                message: message
+            })
+        })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+            if (!data.success) {
+                console.warn('Failed to save message:', data.error);
+            }
+            return data;
+        })
+        .catch(function(err) {
+            console.warn('Error saving message:', err);
+        });
+    }
+    
     // Check if loading existing session from URL
     var urlParams = new URLSearchParams(window.location.search);
     var existingSessionId = urlParams.get('session');
@@ -559,21 +630,32 @@
             if (data.success) {
                 var session = data.data.session;
                 
-                if (session.status === 'completed') {
-                    enableReadOnlyMode();
-                }
-                
+                // Load patient info
                 if (session.age) document.getElementById('age').value = session.age;
                 if (session.gender) document.getElementById('gender').value = session.gender;
                 
-                // Load emotion
+                // Load emotion from ai_detection_data
                 if (session.ai_detection_data && session.ai_detection_data.emotion) {
                     var emotionData = session.ai_detection_data.emotion;
                     updateEmotionDisplay(emotionData.emotion, emotionData.confidence);
                     detectionData = session.ai_detection_data;
                 }
                 
+                // Initialize chatbot profile with saved symptom data
                 initChatbotProfile();
+                
+                // Load saved symptoms from symptom_data
+                if (session.symptom_data) {
+                    if (session.symptom_data.fever) chatbotProfile.Fever = 'Yes';
+                    if (session.symptom_data.cough) chatbotProfile.Cough = 'Yes';
+                    if (session.symptom_data.fatigue) chatbotProfile.Fatigue = 'Yes';
+                    if (session.symptom_data.difficulty_breathing) chatbotProfile['Difficulty Breathing'] = 'Yes';
+                    if (session.symptom_data.blood_pressure === 'High') chatbotProfile['Blood Pressure'] = 'High';
+                    if (session.symptom_data.cholesterol === 'High') chatbotProfile['Cholesterol Level'] = 'High';
+                    
+                    // Update symptom viewer
+                    updateSymptomViewer();
+                }
                 
                 // Load chat messages
                 if (session.messages && session.messages.length > 0) {
@@ -584,6 +666,11 @@
                             addUserMessage(msg.message);
                         }
                     });
+                }
+                
+                // Enable read-only mode LAST (after all data is loaded)
+                if (session.status === 'completed') {
+                    enableReadOnlyMode();
                 }
             }
         })
@@ -597,17 +684,36 @@
         isReadOnly = true;
         document.getElementById('stepBadge').textContent = 'Archived Session';
         document.getElementById('pageTitle').textContent = 'Session Review (Read-Only)';
-        document.getElementById('pageSubtitle').textContent = 'This session has been finalized.';
-        document.getElementById('statusText').textContent = 'Completed';
+        document.getElementById('pageSubtitle').textContent = 'This session has been archived and is now read-only.';
+        document.getElementById('statusText').textContent = 'Archived';
         readonlyNotice.style.display = 'block';
         
+        // Disable all inputs
         document.getElementById('age').disabled = true;
         document.getElementById('gender').disabled = true;
-        chatInputRow.style.display = 'none';
-        finalizeBtn.style.display = 'none';
         
+        // Hide chat input and finalize button
+        chatInputRow.style.display = 'none';
+        if (finalizeBtn) finalizeBtn.style.display = 'none';
+        
+        // Hide Start AI Consultation button
+        var startChatBtn = document.getElementById('startChatBtn');
+        if (startChatBtn) startChatBtn.style.display = 'none';
+        
+        // Hide symptom add button and picker
+        var addSymptomBtn = document.getElementById('addSymptomBtn');
+        if (addSymptomBtn) addSymptomBtn.style.display = 'none';
+        var symptomPicker = document.getElementById('symptomPicker');
+        if (symptomPicker) symptomPicker.style.display = 'none';
+        
+        // Disable quick buttons
         document.querySelectorAll('.quick-btn').forEach(function(btn) {
             btn.disabled = true;
+        });
+        
+        // Hide remove buttons in symptom tags
+        document.querySelectorAll('.symptom-tag .remove-btn').forEach(function(btn) {
+            btn.style.display = 'none';
         });
     }
     
@@ -684,10 +790,8 @@
             container.innerHTML = '<em style="opacity: 0.5;">No symptoms identified yet...</em>';
         } else {
             container.innerHTML = symptoms.map(function(s) {
-                return '<span class="symptom-tag">' + 
-                    s + 
-                    '<button type="button" class="remove-btn" onclick="removeSymptom(\'' + s + '\')">&times;</button>' +
-                '</span>';
+                var removeBtn = isReadOnly ? '' : '<button type="button" class="remove-btn" onclick="removeSymptom(\'' + s + '\')">&times;</button>';
+                return '<span class="symptom-tag">' + s + removeBtn + '</span>';
             }).join('');
         }
         
@@ -805,20 +909,24 @@
         // Show typing
         showTyping();
         
-        fetch(PYTHON_API + '/chatbot/greeting', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ profile: chatbotProfile })
+        // Ensure session exists first, then get greeting
+        ensureSession()
+        .then(function() {
+            return fetch(PYTHON_API + '/chatbot/greeting', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ profile: chatbotProfile })
+            });
         })
         .then(function(res) { return res.json(); })
         .then(function(data) {
             hideTyping();
-            if (data.success) {
-                addBotMessage(data.greeting);
-                lastContext = data.greeting; // CRITICAL FIX: Track context from greeting
-            } else {
-                addBotMessage('Hello! I\'m your MediSight AI. Please describe your symptoms.');
-            }
+            var greetingMsg = data.success ? data.greeting : 'Hello! I\'m your MediSight AI. Please describe your symptoms.';
+            addBotMessage(greetingMsg);
+            lastContext = greetingMsg;
+            
+            // Save greeting to database
+            saveMessageToDB('bot', greetingMsg);
         })
         .catch(function(error) {
             hideTyping();
@@ -881,6 +989,9 @@
         
         showTyping();
         
+        // Save user message to DB first
+        saveMessageToDB('user', message);
+        
         fetch(PYTHON_API + '/chatbot/chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -893,13 +1004,17 @@
         .then(function(res) { return res.json(); })
         .then(function(data) {
             hideTyping();
+            sendBtn.disabled = false;
             
             if (data.success) {
                 chatbotProfile = data.profile;
                 lastContext = data.response;
                 addBotMessage(data.response);
                 
-                updateSymptomViewer(); // New: Update symptoms
+                // Save bot response to DB
+                saveMessageToDB('bot', data.response);
+                
+                updateSymptomViewer();
                 
                 if (data.response.includes('Diagnosis') || data.response.includes('Match')) {
                     diagnosisGiven = true;
@@ -916,24 +1031,8 @@
         });
     }
 
-    // Guest Handling
-    if (finalizeBtn) {
-        finalizeBtn.addEventListener('click', function() {
-            if (isGuest) {
-                if (!diagnosisGiven) {
-                    alert('Please complete the diagnosis first.');
-                    return;
-                }
-                alert('To save your results, please Log In or Register.');
-                window.location.href = '{{ route("login") }}';
-            } else {
-                 // Keep default behavior (likely form submit or no-op as button is submit type usually, but checking HTML it is type="button" maybe? No, defaults to submit in form, but here likely handled by other script or just link. Actually HTML shows it has id finalizeBtn)
-                 // Assuming existing logic handles it or we need to redirect.
-                 // Since snippet didn't show existing finalize listener, I'll assume we need to redirect to dashboard or submit.
-                 window.location.href = '{{ url("/dashboard") }}';
-            }
-        });
-    }
+    // Guest Handling - only show login prompt, don't interfere with finalize
+    // The actual finalize listener is at the bottom of the script
 
     if (isGuest && document.getElementById('finalizeSection')) {
         var endBtn = document.createElement('button');
@@ -978,7 +1077,9 @@
             fever: chatbotProfile.Fever === 'Yes',
             cough: chatbotProfile.Cough === 'Yes',
             fatigue: chatbotProfile.Fatigue === 'Yes',
-            difficulty_breathing: chatbotProfile['Difficulty Breathing'] === 'Yes'
+            difficulty_breathing: chatbotProfile['Difficulty Breathing'] === 'Yes',
+            blood_pressure: chatbotProfile['Blood Pressure'] || 'Normal',
+            cholesterol: chatbotProfile['Cholesterol Level'] || 'Normal'
         };
         
         var sessionData = {

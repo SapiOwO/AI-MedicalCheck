@@ -60,6 +60,7 @@ Route::post('/detect/pain', [DetectionController::class, 'detectPain']);
 
 // Chat messages (Works for both authenticated and guest via session_token)
 Route::post('/chat/message', [ChatMessageController::class, 'send']);
+Route::post('/chat/message/store', [ChatMessageController::class, 'store']);
 Route::get('/chat/session/{sessionId}/messages', [ChatMessageController::class, 'index']);
 
 // Guest session routes (for users without login)

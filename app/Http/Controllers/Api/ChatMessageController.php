@@ -128,6 +128,66 @@ class ChatMessageController extends Controller
     }
 
     /**
+     * Store a message (user or bot) without generating response
+     * Used when frontend gets response from Python API
+     */
+    public function store(Request $request)
+    {
+        $request->validate([
+            'session_id' => 'required|integer',
+            'sender' => 'required|in:user,bot',
+            'message' => 'required|string|max:10000',
+        ]);
+
+        // Find or create session
+        $session = null;
+        
+        if (auth()->check()) {
+            $session = ChatSession::where('user_id', auth()->id())
+                ->find($request->session_id);
+        }
+        
+        // If no session found with user check, try without (for newly created sessions)
+        if (!$session) {
+            $session = ChatSession::find($request->session_id);
+            
+            // Ensure session belongs to authenticated user or is unassigned
+            if ($session && auth()->check() && $session->user_id && $session->user_id !== auth()->id()) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Session access denied',
+                ], 403);
+            }
+        }
+
+        if (!$session) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Session not found',
+            ], 404);
+        }
+
+        // Save message
+        $message = ChatMessage::create([
+            'chat_session_id' => $session->id,
+            'sender' => $request->sender,
+            'message' => $request->message,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'message' => [
+                    'id' => $message->id,
+                    'sender' => $message->sender,
+                    'message' => $message->message,
+                    'created_at' => $message->created_at,
+                ],
+            ],
+        ]);
+    }
+
+    /**
      * Generate bot response (simple rule-based for now)
      * TODO: Replace with actual chatbot API (Gemini/OpenAI)
      */

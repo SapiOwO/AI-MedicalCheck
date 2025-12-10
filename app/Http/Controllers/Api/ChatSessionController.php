@@ -206,7 +206,7 @@ class ChatSessionController extends Controller
             'session_id' => 'nullable|integer',
             'session_token' => 'nullable|string',
             'age' => 'nullable|integer|min:1|max:120',
-            'gender' => 'nullable|string|in:male,female,other',
+            'gender' => 'nullable|string|in:male,female,other,Male,Female,Other',
             'symptom_data' => 'nullable|array',
             'ai_detection_data' => 'nullable|array',
             'current_step' => 'nullable|string',
@@ -255,9 +255,10 @@ class ChatSessionController extends Controller
         if ($request->has('current_step')) {
             $updateData['current_step'] = $request->current_step;
             
-            // If completed, also mark status as completed
+            // If completed, also mark status as completed with timestamp
             if ($request->current_step === 'completed') {
                 $updateData['status'] = 'completed';
+                $updateData['ended_at'] = now();
             }
         }
 
