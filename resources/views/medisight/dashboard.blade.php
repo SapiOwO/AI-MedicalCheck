@@ -276,7 +276,14 @@ function renderSession(session, personalNumber) {
     // Get symptoms count
     let symptomsCount = 0;
     if (session.symptom_data) {
-        symptomsCount = Object.values(session.symptom_data).filter(v => v === true).length;
+        // Count boolean symptoms (true)
+        if (session.symptom_data.fever === true) symptomsCount++;
+        if (session.symptom_data.cough === true) symptomsCount++;
+        if (session.symptom_data.fatigue === true) symptomsCount++;
+        if (session.symptom_data.difficulty_breathing === true) symptomsCount++;
+        // Count string symptoms (High)
+        if (session.symptom_data.blood_pressure === 'High') symptomsCount++;
+        if (session.symptom_data.cholesterol === 'High') symptomsCount++;
     }
     
     const isCompleted = session.status === 'completed';

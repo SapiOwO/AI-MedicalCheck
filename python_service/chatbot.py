@@ -208,6 +208,12 @@ class HealthcareModel:
         """Process message and return response"""
         lower_msg = message.lower().strip()
         
+        # --- 0. Check if diagnosis was already given - don't change symptoms ---
+        if context and ("Match" in context or "Diagnosis" in context or "analysis suggests" in context):
+            # Diagnosis already given, just acknowledge any follow-up
+            return "I've already provided my diagnosis. If you have new symptoms or concerns, please start a new session for a fresh assessment.", profile
+        
+        
         # --- 1. Parse YES/NO answers from context ---
         # Find what symptom was being asked about in the previous message (context)
         symptom_asked = None
@@ -303,24 +309,14 @@ class HealthcareModel:
         has_symptoms = any(profile.get(s) == "Yes" for s in main_symptoms)
         has_vitals = profile.get("Blood Pressure") == "High" or profile.get("Cholesterol Level") == "High"
         
-        # --- 4. If we have enough info, give diagnosis ---
-        if len(answered) >= 4 or (len(answered) >= 2 and has_symptoms):
+        # --- 4. If all 4 main questions are answered, give diagnosis ---
+        if len(answered) >= 4:
             disease, confidence, scores = self.engine.diagnose(profile)
-            
-            # Check if diagnosis is clear
-            sorted_scores = sorted(scores.values(), reverse=True)
-            top_score = sorted_scores[0] if sorted_scores else 0
-            runner_up = sorted_scores[1] if len(sorted_scores) > 1 else 0
-            is_ambiguous = (top_score - runner_up) < 5 and top_score < 15
-            
-            threshold = 0.5 if has_vitals else 0.6
-            
-            if (confidence > threshold and not is_ambiguous) or len(answered) >= 4:
-                info = self.kb.get_advice(disease)
-                response = f"Based on your symptoms, my analysis suggests: **{disease}** ({confidence*100:.1f}% Match).\n\n"
-                response += f"**Description**: {info['description']}\n\n"
-                response += f"**Advice**: {info['advice']}"
-                return response, profile
+            info = self.kb.get_advice(disease)
+            response = f"Based on your symptoms, my analysis suggests: **{disease}** ({confidence*100:.1f}% Match).\n\n"
+            response += f"**Description**: {info['description']}\n\n"
+            response += f"**Advice**: {info['advice']}"
+            return response, profile
         
         # --- 5. Ask next question ---
         question_num = len(answered) + 1

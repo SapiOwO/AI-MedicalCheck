@@ -477,7 +477,7 @@
                 <!-- Messages will be appended here -->
             </div>
             
-            <div class="chat-input-row" id="chatInputRow">
+            <div class="chat-input-row" id="chatInputRow" style="display: none;">
                 <input type="text" id="chatInput" placeholder="Describe your symptoms... (e.g., 'I have fever, cough, and feel tired')">
                 <button class="btn-primary" id="sendBtn">Send</button>
             </div>
@@ -508,13 +508,18 @@
     var isGuest = !token;
     var sessionId = null;
     var sessionToken = localStorage.getItem('current_session_token');
-    var detectionData = {};
+    
+    // Load detection data from localStorage (saved by camera page)
+    var storedDetection = localStorage.getItem('detection_data');
+    var detectionData = storedDetection ? JSON.parse(storedDetection) : {};
+    
     var isReadOnly = false;
     
     // Chatbot state
     var chatbotProfile = null;
     var lastContext = '';
     var diagnosisGiven = false;
+    var guestMessages = []; // Store messages for guests to save later
     
     // Elements
     var chatMessages = document.getElementById('chatMessages');
@@ -582,7 +587,13 @@
     
     // Helper: Save message to database
     function saveMessageToDB(sender, message) {
-        if (!sessionId || isGuest) return Promise.resolve(); // Skip for guests without session
+        // For guests, store messages locally to save later when they login
+        if (isGuest) {
+            guestMessages.push({ sender: sender, message: message });
+            return Promise.resolve();
+        }
+        
+        if (!sessionId) return Promise.resolve();
         
         return fetch(API_URL + '/chat/message/store', {
             method: 'POST',
@@ -602,6 +613,53 @@
         })
         .catch(function(err) {
             console.warn('Error saving message:', err);
+        });
+    }
+    
+    // Helper: Save symptom data to database (for session resume)
+    function saveSymptomData() {
+        if (isGuest || !sessionId) return;
+        
+        var symptomData = {
+            fever: chatbotProfile.Fever === 'Yes',
+            cough: chatbotProfile.Cough === 'Yes',
+            fatigue: chatbotProfile.Fatigue === 'Yes',
+            difficulty_breathing: chatbotProfile['Difficulty Breathing'] === 'Yes',
+            blood_pressure: chatbotProfile['Blood Pressure'] || 'Normal',
+            cholesterol: chatbotProfile['Cholesterol Level'] || 'Normal'
+        };
+        
+        fetch(API_URL + '/session/update', {
+            method: 'POST',
+            headers: getHeaders(),
+            body: JSON.stringify({
+                session_id: parseInt(sessionId),
+                symptom_data: symptomData,
+                age: parseInt(document.getElementById('age').value) || null,
+                gender: document.getElementById('gender').value || null
+            })
+        })
+        .catch(function(err) {
+            console.warn('Error saving symptom data:', err);
+        });
+    }
+    
+    // Helper: Save initial session data including ai_detection_data (emotion)
+    function saveInitialSessionData() {
+        if (isGuest || !sessionId) return;
+        
+        fetch(API_URL + '/session/update', {
+            method: 'POST',
+            headers: getHeaders(),
+            body: JSON.stringify({
+                session_id: parseInt(sessionId),
+                ai_detection_data: detectionData,
+                age: parseInt(document.getElementById('age').value) || null,
+                gender: document.getElementById('gender').value || null
+            })
+        })
+        .catch(function(err) {
+            console.warn('Error saving initial session data:', err);
         });
     }
     
@@ -650,14 +708,23 @@
                 // Initialize chatbot profile with saved symptom data
                 initChatbotProfile();
                 
-                // Load saved symptoms from symptom_data
+                // Load saved symptoms from symptom_data (only set values that were actually saved)
                 if (session.symptom_data) {
-                    if (session.symptom_data.fever) chatbotProfile.Fever = 'Yes';
-                    if (session.symptom_data.cough) chatbotProfile.Cough = 'Yes';
-                    if (session.symptom_data.fatigue) chatbotProfile.Fatigue = 'Yes';
-                    if (session.symptom_data.difficulty_breathing) chatbotProfile['Difficulty Breathing'] = 'Yes';
-                    if (session.symptom_data.blood_pressure === 'High') chatbotProfile['Blood Pressure'] = 'High';
-                    if (session.symptom_data.cholesterol === 'High') chatbotProfile['Cholesterol Level'] = 'High';
+                    // Only set if explicitly defined (true/false, not undefined)
+                    if (session.symptom_data.fever === true) chatbotProfile.Fever = 'Yes';
+                    else if (session.symptom_data.fever === false) chatbotProfile.Fever = 'No';
+                    
+                    if (session.symptom_data.cough === true) chatbotProfile.Cough = 'Yes';
+                    else if (session.symptom_data.cough === false) chatbotProfile.Cough = 'No';
+                    
+                    if (session.symptom_data.fatigue === true) chatbotProfile.Fatigue = 'Yes';
+                    else if (session.symptom_data.fatigue === false) chatbotProfile.Fatigue = 'No';
+                    
+                    if (session.symptom_data.difficulty_breathing === true) chatbotProfile['Difficulty Breathing'] = 'Yes';
+                    else if (session.symptom_data.difficulty_breathing === false) chatbotProfile['Difficulty Breathing'] = 'No';
+                    
+                    if (session.symptom_data.blood_pressure) chatbotProfile['Blood Pressure'] = session.symptom_data.blood_pressure;
+                    if (session.symptom_data.cholesterol) chatbotProfile['Cholesterol Level'] = session.symptom_data.cholesterol;
                     
                     // Update symptom viewer
                     updateSymptomViewer();
@@ -665,11 +732,29 @@
                 
                 // Load chat messages
                 if (session.messages && session.messages.length > 0) {
+                    var lastBotMessage = '';
                     session.messages.forEach(function(msg) {
                         if (msg.sender === 'bot') {
                             addBotMessage(msg.message);
+                            lastBotMessage = msg.message; // Track last bot message
                         } else {
                             addUserMessage(msg.message);
+                        }
+                    });
+                    
+                    // Set lastContext to last bot message so chatbot knows where to continue
+                    lastContext = lastBotMessage;
+                    
+                    // Show chat input since conversation has started
+                    document.getElementById('chatInputRow').style.display = 'flex';
+                    document.getElementById('startChatBtn').style.display = 'none';
+                    
+                    // Check if diagnosis was given in any message
+                    session.messages.forEach(function(msg) {
+                        if (msg.message && (msg.message.includes('Diagnosis') || msg.message.includes('Match'))) {
+                            diagnosisGiven = true;
+                            var addSymptomBtn = document.getElementById('addSymptomBtn');
+                            if (addSymptomBtn) addSymptomBtn.style.display = 'inline-block';
                         }
                     });
                 }
@@ -919,8 +1004,9 @@
         chatbotProfile.Age = parseInt(ageInput.value);
         chatbotProfile.Gender = genderInput.value;
         
-        // Hide Start button
+        // Hide Start button, show chat input
         document.getElementById('startChatBtn').style.display = 'none';
+        document.getElementById('chatInputRow').style.display = 'flex';
         
         // Show typing
         showTyping();
@@ -943,6 +1029,9 @@
             
             // Save greeting to database
             saveMessageToDB('bot', greetingMsg);
+            
+            // Save initial data including ai_detection_data (emotion)
+            saveInitialSessionData();
         })
         .catch(function(error) {
             hideTyping();
@@ -1032,6 +1121,9 @@
                 
                 updateSymptomViewer();
                 
+                // Auto-save symptom data so session can be resumed properly
+                saveSymptomData();
+                
                 if (data.response.includes('Diagnosis') || data.response.includes('Match')) {
                     diagnosisGiven = true;
                     // Show symptom add button after diagnosis
@@ -1059,6 +1151,7 @@
         localStorage.removeItem('current_session_token');
         localStorage.removeItem('detection_data');
         localStorage.removeItem('pending_session_data');
+        localStorage.removeItem('pending_chat_messages');
     }
 
     if (isGuest && document.getElementById('finalizeSection')) {
@@ -1123,7 +1216,9 @@
         };
         
         if (isGuest) {
+            // Save session data and chat messages for after login
             localStorage.setItem('pending_session_data', JSON.stringify(sessionData));
+            localStorage.setItem('pending_chat_messages', JSON.stringify(guestMessages));
             alert('Please login to save your session.');
             window.location.href = '{{ url("/login") }}?redirect=save_session';
             return;

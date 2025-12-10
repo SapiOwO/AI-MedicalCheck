@@ -124,7 +124,8 @@ document.getElementById('loginForm').addEventListener('submit', async function(e
                     var sessionResult = await sessionRes.json();
                     
                     if (sessionResult.success) {
-                        sessionData.session_id = sessionResult.data.session.id;
+                        var newSessionId = sessionResult.data.session.id;
+                        sessionData.session_id = newSessionId;
                         
                         // Save the session data
                         await fetch('{{ url("/api/session/update") }}', {
@@ -136,6 +137,28 @@ document.getElementById('loginForm').addEventListener('submit', async function(e
                             },
                             body: JSON.stringify(sessionData)
                         });
+                        
+                        // Save pending chat messages
+                        var pendingMessages = localStorage.getItem('pending_chat_messages');
+                        if (pendingMessages) {
+                            var messages = JSON.parse(pendingMessages);
+                            for (var i = 0; i < messages.length; i++) {
+                                await fetch('{{ url("/api/chat/message/store") }}', {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                        'Accept': 'application/json',
+                                        'Authorization': 'Bearer ' + data.data.token
+                                    },
+                                    body: JSON.stringify({
+                                        session_id: newSessionId,
+                                        sender: messages[i].sender,
+                                        message: messages[i].message
+                                    })
+                                });
+                            }
+                            localStorage.removeItem('pending_chat_messages');
+                        }
                     }
                     
                     localStorage.removeItem('pending_session_data');
